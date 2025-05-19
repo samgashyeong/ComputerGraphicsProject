@@ -7,26 +7,32 @@
 <script id="vertex-shader" type="x-shader/x-vertex">
 attribute vec4 vPosition;
 
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+
 void
 main()
 {
+
+    
     gl_PointSize = 1.0;
-    gl_Position = vPosition;
+    gl_Position = projectionMatrix * modelViewMatrix * vPosition;
 }
 </script>
 
 <script id="fragment-shader" type="x-shader/x-fragment">
-
-void
-main()
+precision mediump float;
+uniform vec4 uColor;
+void main()
 {
-    gl_FragColor = vec4( 1.0, 0.0, 0.0, 1.0 );
+    gl_FragColor = uColor;
 }
 </script>
 
 <script type="text/javascript" src="../Common/webgl-utils.js"></script>
 <script type="text/javascript" src="../Common/initShaders.js"></script>
 <script type="text/javascript" src="../Common/MV.js"></script>
+<script src="model.js"></script>
 <script type="text/javascript" src="example1.js"></script>
 </head>
 
@@ -34,5 +40,10 @@ main()
 <canvas id="gl-canvas" width="1024" height="1024">
 Oops ... your browser doesn't support the HTML5 canvas element
 </canvas>
+<div>
+    <label><input type="radio" name="camera" id="cam1" checked> Camera 1</label>
+    <label><input type="radio" name="camera" id="cam2"> Camera 2</label>
+    <label><input type="radio" name="camera" id="cam3"> Camera 3</label>
+</div>
 </body>
 </html>
