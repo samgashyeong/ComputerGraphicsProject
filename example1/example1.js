@@ -165,13 +165,13 @@ function settingNode() {
     );
     figure[0] = createNode(
         mult(mV, translate(0.0, 0.0, 0.0)),
-        function () { drawCube(modelViewMatrix, vec4(1.0, 0.0, 0.0, 1.0), bufferWideCube, cubePoints.length); },
+        function () { drawCube(modelViewMatrix, vec4(0.35, 0.22, 0.1, 1.0), bufferWideCube, cubePoints.length); },
         null,
         1,
     );
     figure[1] = createNode(
         mult(translate(0.25, -0.15, -0.15), rotate(1 / 5 * legAngles[0], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), bufferHorseThighVertices, horseThighPoints.length); },
+        function () { drawCube(modelViewMatrix, vec4(0.5, 0.3, 0.2, 1.0), bufferHorseThighVertices, horseThighPoints.length); },
         5,
         2
     );
@@ -179,14 +179,14 @@ function settingNode() {
     // // 다리1
     figure[2] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[0], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), bufferTallCube, tallCubePoints.length); },
+        function () { drawCube(modelViewMatrix, vec4(0.65, 0.4, 0.25, 1.0), bufferTallCube, tallCubePoints.length); },
         null,
         3
     );
 
     figure[3] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.0, 0.0, 1.0, 1.0), bufferHorseCalfVertices, horseCalfPoints.length); },
+        function () { drawCube(modelViewMatrix, vec4(0.7, 0.45, 0.3, 1.0), bufferHorseCalfVertices, horseCalfPoints.length); },
         null,
         4
     );
@@ -197,28 +197,28 @@ function settingNode() {
     // 다리3
     figure[4] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[2],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), bufferHorseHoofVertices, tallCubePoints.length); },
+        function() { drawCube(modelViewMatrix, vec4(0.2, 0.2, 0.2, 1.0), bufferHorseHoofVertices, tallCubePoints.length); },
         null,
-        11
+        null,
     );
 
     figure[5] = createNode(
         mult(translate(0.25, -0.15, 0.15), rotate(1 / 5 * legAngles[3], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), bufferHorseThighVertices, horseThighPoints.length); },
+        function () { drawCube(modelViewMatrix, vec4(0.5, 0.3, 0.2, 1.0), bufferHorseThighVertices, horseThighPoints.length); },
         9,
         6
     );
     // // 다리1
     figure[6] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), bufferTallCube, tallCubePoints.length); },
+        function () { drawCube(modelViewMatrix, vec4(0.65, 0.4, 0.25, 1.0), bufferTallCube, tallCubePoints.length); },
         null,
         7
     );
 
     figure[7] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[2], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.0, 0.0, 1.0, 1.0), bufferHorseCalfVertices, horseCalfPoints.length); },
+        function () { drawCube(modelViewMatrix, vec4(0.7, 0.45 ,0.3, 1.0), bufferHorseCalfVertices, horseCalfPoints.length); },
         null,
         8
     );
@@ -229,31 +229,25 @@ function settingNode() {
     // 다리3
     figure[8] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[0],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), bufferHorseHoofVertices, tallCubePoints.length); },
+        function() { drawCube(modelViewMatrix, vec4(0.2, 0.2, 0.2, 1.0), bufferHorseHoofVertices, tallCubePoints.length); },
         null,
         null
     );
     
     figure[9] = createNode(
         mult(translate(0.35, 0, 0), rotate(legAngles[1],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), bufferHorseCalfVertices, tallCubePoints.length); },
+        function() { drawCube(modelViewMatrix, vec4(0.7, 0.45, 0.3, 1.0), bufferHorseCalfVertices, tallCubePoints.length); },
         null,
         10
     );
 
     figure[10] = createNode(
         mult(translate(0, -0.15, 0), rotate( legAngles[3],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), bufferHorseCalfVertices, tallCubePoints.length); },
+        function() { drawCube(modelViewMatrix, vec4(0.7, 0.4, 0.3, 1.0), bufferHorseCalfVertices, tallCubePoints.length); },
         null,
         null
     );
 
-    figure[11] = createNode(
-        mult(translate(0, -0.15, 0), rotate( legAngles[3],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), bufferHorseThighVertices, tallCubePoints.length); },
-        null,
-        null
-    );
 }
 
 // 하이어라키 구조로 큐브 여러 개 그리기 예시
