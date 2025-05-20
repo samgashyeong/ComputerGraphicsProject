@@ -22,7 +22,23 @@ var mvMatrix;
 var ptMatrix;
 var modelViewLoc;
 var projectionLoc;
-var colorLoc; // 전역 변수로 선언
+var fcolorLoc; // 전역 변수로 선언
+
+var lightAmbient = vec4(0.2,0.2,0.2,1.0); // La
+var lightDiffuse = vec4(1.0,1.0,0.0,1.0); // Ld
+var lightSpecular = vec4(1.0,1.0,1.0,1.0); // Ls
+var lightPosition = vec4(5.0,5.0,5.0,1.0); // 조명 위치
+
+var ambientProductLoc;
+var diffuseProductLoc;
+var specularProductLoc;
+var lightPositionLoc;
+var shininessLoc;
+
+var materialAmbient;
+var materialDiffuse;
+var materialSpecular;
+var materialShininess = 100.0;
 
 // 큐브 정점 및 인덱스 정의
 const cubeIndices = [
@@ -62,6 +78,12 @@ let horseHoofPoints = [];
 for (let i = 0; i < cubeIndices.length; ++i) {
     horseHoofPoints.push(horseHoofVertices[cubeIndices[i]]);
 }
+
+let cubeNormalPoints = [];
+for (let i = 0 ; i < cubeIndices.length; ++i){
+    let faceIndex = Math.floor(i / 6);
+    cubeNormalPoints.push(baseNormals[faceIndex]);
+}
 // 카메라 위치 배열
 var bufferCube;
 var bufferTallCube;
@@ -70,6 +92,14 @@ var bufferHorseThighVertices;
 var bufferHorseCalfVertices;
 var bufferHorseHoofVertices;
 
+// normal buffer
+var bufferCubeNormals;
+var bufferTallCubeNormals;
+var bufferWideCubeNormals;
+var bufferHorseThighNormals;
+var bufferHorseCalfNormals;
+var bufferHorseHoofNormals;
+
 const cameraPositions = [
     vec3(0, 0, -4),   // Camera 1: 오른쪽 위에서 전체를 내려다봄
     vec3(0, 4, 8),   // Camera 2: 정면 위에서 전체를 내려다봄
@@ -77,6 +107,7 @@ const cameraPositions = [
 ];
 let currentCamera = 0; // 기본 카메라 인덱스
 var vPosition;
+var vNormal;
 
 
 
@@ -95,10 +126,19 @@ window.onload = function init() {
     var program = initShaders(gl, "vertex-shader", "fragment-shader");
     gl.useProgram(program);
 
+    // base location
     modelViewLoc = gl.getUniformLocation(program, "modelViewMatrix");
     projectionLoc = gl.getUniformLocation(program, "projectionMatrix");
-    colorLoc = gl.getUniformLocation(program, "uColor");
+    fcolorLoc = gl.getAttribLocation(program, "fColor");
 
+    // lighting location
+    ambientProductLoc = gl.getUniformLocation(program, "ambientProduct");
+    diffuseProductLoc = gl.getUniformLocation(program, "diffuseProduct");
+    specularProductLoc = gl.getUniformLocation(program, "specularProduct");
+    lightPositionLoc = gl.getUniformLocation(program, "lightPosition");
+    shininessLoc = gl.getUniformLocation(program, "shininess");
+
+    // modeling buffer
     var bufferId = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.bufferData(gl.ARRAY_BUFFER, flatten(cubePoints), gl.STATIC_DRAW);
@@ -130,6 +170,31 @@ window.onload = function init() {
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
 
+    // lighting buffer
+    bufferCubeNormals = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferCubeNormals);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(cubeNormalPoints), gl.STATIC_DRAW);
+
+    bufferTallCubeNormals = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferTallCubeNormals);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(cubeNormalPoints), gl.STATIC_DRAW);
+
+    bufferWideCubeNormals = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferWideCubeNormals);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(cubeNormalPoints), gl.STATIC_DRAW);
+
+    bufferHorseThighNormals = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferHorseThighNormals);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(cubeNormalPoints), gl.STATIC_DRAW);
+
+    bufferHorseCalfNormals = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferHorseCalfNormals);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(cubeNormalPoints), gl.STATIC_DRAW);
+
+    bufferHorseHoofNormals = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferHorseHoofNormals);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(cubeNormalPoints), gl.STATIC_DRAW);
+    vNormal = gl.getAttribLocation(program, "vNormal");
     // 라디오 버튼 이벤트 등록
     ["cam1", "cam2", "cam3"].forEach((id, idx) => {
         document.getElementById(id).addEventListener("change", function () {
@@ -139,17 +204,41 @@ window.onload = function init() {
         });
     });
 
+    document.getElementById("lightX").addEventListener("input", function() {
+        lightPosition[0] = parseFloat(this.value);
+    });
+    document.getElementById("lightY").addEventListener("input", function() {
+        lightPosition[1] = parseFloat(this.value);
+    });
+    document.getElementById("lightX").addEventListener("input", function() {
+        lightPosition[2] = parseFloat(this.value);
+    });
+    document.getElementById("shininess").addEventListener("input", function() {
+        materialShininess = parseFloat(this.value);
+    });
+
     render();
 };
 
 
-function drawCube(matrix, color, buffer, vertexCount) {
+function drawCube(matrix, material, color, buffer, normalBuffer, vertexCount) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0,0);
+    gl.enableVertexAttribArray(vNormal);
+    const products = calculateProducts(material)
+
+    gl.uniform4fv(ambientProductLoc, flatten(products.ambient));
+    gl.uniform4fv(diffuseProductLoc, flatten(products.diffuse));
+    gl.uniform4fv(specularProductLoc, flatten(products.specular));
+    gl.uniform4fv(lightPositionLoc, flatten(lightPosition));
+    gl.uniform1f(shininessLoc, materialShininess);
+
     gl.uniformMatrix4fv(modelViewLoc, false, flatten(matrix));
-    gl.uniform4fv(colorLoc, color);
+    // gl.uniform4fv(colorLoc, color);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
 }
 
@@ -163,87 +252,83 @@ function settingNode() {
         lookAt(eye, vec3(0, 0, 0), vec3(0, 1, 0)),
         mult(rotate(angle, [0, 1, 0]), scalem(1, 1, 1))
     );
+    // body
     figure[0] = createNode(
         mult(mV, translate(0.0, 0.0, 0.0)),
-        function () { drawCube(modelViewMatrix, vec4(0.35, 0.22, 0.1, 1.0), bufferWideCube, cubePoints.length); },
+        function () { drawCube(modelViewMatrix, bodyMaterial, vec4(0.35, 0.22, 0.1, 1.0), bufferWideCube, bufferWideCubeNormals, cubePoints.length); },
         null,
         1,
     );
+    // thigh(left)
     figure[1] = createNode(
         mult(translate(0.25, -0.15, -0.15), rotate(1 / 5 * legAngles[0], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.5, 0.3, 0.2, 1.0), bufferHorseThighVertices, horseThighPoints.length); },
+        function () { drawCube(modelViewMatrix, thighMaterial, vec4(0.5, 0.3, 0.2, 1.0), bufferHorseThighVertices, bufferHorseThighNormals, horseThighPoints.length); },
         5,
         2
     );
-
-    // // 다리1
+    // tall(left)
     figure[2] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[0], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.65, 0.4, 0.25, 1.0), bufferTallCube, tallCubePoints.length); },
+        function () { drawCube(modelViewMatrix, calfMaterial, vec4(0.65, 0.4, 0.25, 1.0), bufferTallCube, bufferTallCubeNormals, tallCubePoints.length); },
         null,
         3
     );
-
+    // calf(left)
     figure[3] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.7, 0.45, 0.3, 1.0), bufferHorseCalfVertices, horseCalfPoints.length); },
+        function () { drawCube(modelViewMatrix, calfMaterial, vec4(0.7, 0.45, 0.3, 1.0), bufferHorseCalfVertices, bufferHorseCalfNormals, horseCalfPoints.length); },
         null,
         4
     );
-
-
-    // // 다리2
-
-    // 다리3
+    // hoof(left)
     figure[4] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[2],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(0.2, 0.2, 0.2, 1.0), bufferHorseHoofVertices, tallCubePoints.length); },
+        function() { drawCube(modelViewMatrix, hoofMaterial, vec4(0.2, 0.2, 0.2, 1.0), bufferHorseHoofVertices, bufferHorseHoofNormals, tallCubePoints.length); },
         null,
         null,
     );
 
+    // thigh(right)
     figure[5] = createNode(
         mult(translate(0.25, -0.15, 0.15), rotate(1 / 5 * legAngles[3], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.5, 0.3, 0.2, 1.0), bufferHorseThighVertices, horseThighPoints.length); },
+        function () { drawCube(modelViewMatrix, thighMaterial, vec4(0.5, 0.3, 0.2, 1.0), bufferHorseThighVertices, bufferHorseThighNormals, horseThighPoints.length); },
         9,
         6
     );
-    // // 다리1
+    // tall(left)
     figure[6] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.65, 0.4, 0.25, 1.0), bufferTallCube, tallCubePoints.length); },
+        function () { drawCube(modelViewMatrix, calfMaterial, vec4(0.65, 0.4, 0.25, 1.0), bufferTallCube, bufferHorseCalfNormals, tallCubePoints.length); },
         null,
         7
     );
-
+    // calf(right)
     figure[7] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[2], [0, 0, 1])),
-        function () { drawCube(modelViewMatrix, vec4(0.7, 0.45 ,0.3, 1.0), bufferHorseCalfVertices, horseCalfPoints.length); },
+        function () { drawCube(modelViewMatrix, calfMaterial, vec4(0.7, 0.45 ,0.3, 1.0), bufferHorseCalfVertices, bufferHorseCalfNormals, horseCalfPoints.length); },
         null,
         8
     );
-
-
-    // // 다리2
-
-    // 다리3
+    // hoof(right)
     figure[8] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[0],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(0.2, 0.2, 0.2, 1.0), bufferHorseHoofVertices, tallCubePoints.length); },
+        function() { drawCube(modelViewMatrix, hoofMaterial, vec4(0.2, 0.2, 0.2, 1.0), bufferHorseHoofVertices, bufferHorseHoofNormals, tallCubePoints.length); },
         null,
         null
     );
     
+    // neck
     figure[9] = createNode(
         mult(translate(0.35, 0, 0), rotate(legAngles[1],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(0.7, 0.45, 0.3, 1.0), bufferHorseCalfVertices, tallCubePoints.length); },
+        function() { drawCube(modelViewMatrix, calfMaterial, vec4(0.7, 0.45, 0.3, 1.0), bufferHorseCalfVertices, bufferHorseCalfNormals, tallCubePoints.length); },
         null,
         10
     );
 
+    // head
     figure[10] = createNode(
         mult(translate(0, -0.15, 0), rotate( legAngles[3],[0, 0, 1])),
-        function() { drawCube(modelViewMatrix, vec4(0.7, 0.4, 0.3, 1.0), bufferHorseCalfVertices, tallCubePoints.length); },
+        function() { drawCube(modelViewMatrix, calfMaterial, vec4(0.7, 0.4, 0.3, 1.0), bufferHorseCalfVertices, bufferHorseCalfNormals, tallCubePoints.length); },
         null,
         null
     );
@@ -300,4 +385,34 @@ function createNode(transform, render, sibling, child) {
         child: child, //자식
     }
     return node;
+}
+
+// init properties for each cube
+const bodyMaterial = {
+    ambient: vec4(1.0,0.2,0.0,1.0),
+    diffuse: vec4(1.0,0.8,0.0,1.0),
+    specular: vec4(1.0,0.8,0.0,1.0)
+};
+const thighMaterial = {
+    ambient: vec4(0.9,0.2,0.0,1.0),
+    diffuse: vec4(0.9,0.7,0.0,1.0),
+    specular: vec4(0.9,0.7,0.0,1.0)
+};
+const calfMaterial = {
+    ambient: vec4(0.8,0.2,0.0,1.0),
+    diffuse: vec4(0.8,0.7,0.0,1.0),
+    specular: vec4(0.8,0.7,0.0,1.0)
+};
+const hoofMaterial = {
+    ambient: vec4(0.1,0.1,0.1,1.0),
+    diffuse: vec4(0.1,0.1,0.1,1.0),
+    specular: vec4(0.8,0.8,0.8,1.0)
+};
+
+function calculateProducts(material){
+    return {
+        ambient: mult(lightAmbient, material.ambient),
+        diffuse: mult(lightDiffuse, material.diffuse),
+        specular: mult(lightSpecular, material.specular)
+    };
 }
