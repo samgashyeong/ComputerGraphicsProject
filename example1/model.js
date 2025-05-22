@@ -104,30 +104,11 @@ const horseManeVertices = [
 ];
 
 
-
-
-
-function draw() {
-    // 1. 몸통 변환 행렬
-    let torsoMatrix = mat4();
-    torsoMatrix = mult(torsoMatrix, translate(0, 0, 0));
-    torsoMatrix = mult(torsoMatrix, scale(0.5, 1.0, 0.2));
-    // 몸통 그리기
-    drawCube(torsoMatrix);
-
-    // 2. 팔 변환 행렬 (몸통의 변환을 먼저 곱함)
-    let armMatrix = mult(torsoMatrix, translate(0.6, 0.4, 0));
-    armMatrix = mult(armMatrix, rotate(45, 0, 0, 1)); // 팔 회전
-    armMatrix = mult(armMatrix, scale(0.2, 0.6, 0.2));
-    // 팔 그리기
-    drawCube(armMatrix);
-}
-
-// 행렬을 uniform으로 넘기고 큐브를 그리는 함수 예시
-function drawCube(modelMatrix) {
-    gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(modelMatrix));
-    // ...버퍼 바인딩 및 그리기...
-    gl.drawArrays(gl.TRIANGLES, 0, numCubeVertices);
-}
+const groundVertices = [
+    vec4(-500, 0, -500, 1.0), // 0: 왼쪽-뒤
+    vec4( 500, 0, -500, 1.0), // 1: 오른쪽-뒤
+    vec4( 500, 0,  500, 1.0), // 2: 오른쪽-앞
+    vec4(-500, 0,  500, 1.0)  // 3: 왼쪽-앞
+];
 
 

@@ -7,32 +7,34 @@
 
     <script id="vertex-shader" type="x-shader/x-vertex">
 attribute vec4 vPosition;
+attribute vec2 vTexCoord;      // 추가
+varying vec2 fTexCoord;        // 추가
 
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 
-void
-main()
-{
-
-    
+void main() {
     gl_PointSize = 1.0;
     gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+    fTexCoord = vTexCoord;
 }
 </script>
 
     <script id="fragment-shader" type="x-shader/x-fragment">
 precision mediump float;
 uniform vec4 uColor;
-void main()
-{
-    gl_FragColor = uColor;
+uniform sampler2D uTexture;    // 추가
+varying vec2 fTexCoord;
+
+void main() {
+    vec4 texColor = texture2D(uTexture, fTexCoord); // 추가
+    gl_FragColor = texColor;               // 곱하기로 색상 조합
 }
 </script>
-
     <script type="text/javascript" src="../Common/webgl-utils.js"></script>
     <script type="text/javascript" src="../Common/initShaders.js"></script>
     <script type="text/javascript" src="../Common/MV.js"></script>
+    <script src="texture.js"></script>
     <script src="model.js"></script>
     <script type="text/javascript" src="example1.js"></script>
 </head>
