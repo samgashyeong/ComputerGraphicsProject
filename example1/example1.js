@@ -3,13 +3,25 @@
 var gl, program;
 var canvasW = 800, canvasH = 800;
 var modelViewLoc, projectionLoc, colorLoc;
-var vPosition, vTexCoord;
+var vPosition, vTexCoord, vNormal;
 var modelViewMatrix, ptMatrix;
 var stack = [];
 let angle = 60;
 
-
 var horseCount = 30;
+var lightAmbient = vec4(0.2,0.2,0.2,1.0);
+var lightDiffuse = vec4(1.0,1.0,0.0,1.0);
+var lightSpecular = vec4(1.0,1.0,1.0,1.0);
+var lightPosition = vec4(5.0,5.0,5.0,1.0);
+
+var ambientProductLoc;
+var diffuseProductLoc;
+var specularProductLoc;
+var lightPositionLoc;
+var shininessLoc;
+
+var materialShininess = 100.0;
+
 const cameraPositions = [
     vec3(3, 2, 4),
     vec3(0, 5, 8),
@@ -22,6 +34,14 @@ const cubeIndices = [
     6, 5, 1, 6, 1, 2, // 윗면
     4, 5, 6, 4, 6, 7, // 뒷면
     5, 4, 0, 5, 0, 1  // 왼쪽면
+];
+const baseNormals = [
+    vec3( 0,  0,  1),
+    vec3( 1,  0,  0),
+    vec3( 0, -1,  0),
+    vec3( 0,  1,  0),
+    vec3( 0,  0, -1),
+    vec3(-1,  0,  0)
 ];
 
 let eyeSlider = { x: 3, y: 2, z: 4 };
@@ -64,8 +84,18 @@ function makePoints(vertices) {
     return points;
 }
 
+// --- Normal vector 생성 ---
+function makeNormals() {
+    let normals = [];
+    for (let i = 0; i < cubeIndices.length; ++i){
+        let faceIndex = Math.floor(i / 6);
+        normals.push(baseNormals[faceIndex]);
+    }
+    return normals;
+}
+
 // --- Buffer & Texture Setup ---
-let buffers = {}, textures = {}, texBuffers = {}, texAttribs = {};
+let buffers = {}, textures = {}, texBuffers = {}, texAttribs = {}, normalBuffers = {};
 
 // 각 부위별 points
 const cubePoints = makePoints(cubeVertices);
@@ -78,6 +108,8 @@ const horseHoofPoints = makePoints(horseHoofVertices);
 const trapezoidPoints = makePoints(trapezoidVertices);
 const horseManePoints = makePoints(horseManeVertices);
 
+// create normal vector
+const cubeNormalPoints = makeNormals();
 
 function setupBuffersAndTextures() {
     // Points
@@ -95,13 +127,22 @@ function setupBuffersAndTextures() {
     texBuffers.brown = createBufferWithData(cubeTexCoords);
     texBuffers.black = createBufferWithData(cubeTexCoords);
     texBuffers.white = createBufferWithData(cubeTexCoords);
-    texBuffers.yellow = createBufferWithData(cubeTexCoords);
 
     // Texture Objects
     textures.brown = createTextureWithImage("texture/brown_1.png");
     textures.black = createTextureWithImage("texture/black_1.png");
     textures.white = createTextureWithImage("texture/white_1.png");
-    textures.yellow = createTextureWithImage("texture/yellow_1.png");
+
+    // normal vector buffer
+    normalBuffers.cube = createBufferWithData(cubeNormalPoints);
+    normalBuffers.tallCube = createBufferWithData(cubeNormalPoints);
+    normalBuffers.wideCube = createBufferWithData(cubeNormalPoints);
+    normalBuffers.horseThigh = createBufferWithData(cubeNormalPoints);
+    normalBuffers.horseCalf = createBufferWithData(cubeNormalPoints);
+    normalBuffers.horseHoof = createBufferWithData(cubeNormalPoints);
+    normalBuffers.trapezoid = createBufferWithData(cubeNormalPoints);
+    normalBuffers.horseFrontThigh = createBufferWithData(cubeNormalPoints);
+    normalBuffers.horseMane = createBufferWithData(cubeNormalPoints);
 }
 
 // --- Utility ---
@@ -121,10 +162,10 @@ function createHorseInstance(existingPositions) {
         legAngles: [0, 0, 0, 0],
         legDirections: [1, 1, 1, 1],
         legSpeeds: [
-            1.5 + Math.random() * 1.2,
-            2.2 + Math.random() * 1.2,
-            1.0 + Math.random() * 1.2,
-            2.8 + Math.random() * 1.2,
+            1.5 + Math.random()*1.2,
+            2.2 + Math.random()*1.2,
+            1.0 + Math.random()*1.2,
+            2.8 + Math.random()*1.2,
         ],
         runningSpeed: [1.2 + Math.random()],
     };
@@ -147,14 +188,54 @@ function spawnHorses(count) {
     }
 }
 
+// material initialize
+const bodyMaterial = {
+    ambient: vec4(1.0,1.2,0.0,1.0),
+    diffuse: vec4(1.0,1.8,0.0,1.0),
+    specular: vec4(1.0,1.8,0.0,1.0)
+};
+const thighMaterial = {
+    ambient: vec4(0.9,0.2,0.0,1.0),
+    diffuse: vec4(0.9,0.7,0.0,1.0),
+    specular: vec4(0.9,0.7,0.0,1.0)
+};
+const calfMaterial = {
+    ambient: vec4(0.8,0.2,0.0,1.0),
+    diffuse: vec4(0.8,0.7,0.0,1.0),
+    specular: vec4(0.8,0.7,0.0,1.0)
+};
+const hoofMaterial = {
+    ambient: vec4(0.1,0.1,0.1,1.0),
+    diffuse: vec4(0.1,0.1,0.1,1.0),
+    specular: vec4(0.8,0.8,0.8,1.0)
+};
+
+function calculateProducts(material){
+    return {
+        ambient: mult(lightAmbient, material.ambient),
+        diffuse: mult(lightDiffuse, material.diffuse),
+        specular: mult(lightSpecular, material.specular)
+    };
+}
+
+
 // --- Drawing ---
-function drawCube(matrix, color, buffer, vertexCount, texBuffer = texBuffers.black, texture = textures.black) {
+function drawCube(matrix, material, color, buffer, vertexCount, texBuffer = texBuffers.black, texture = textures.black, normalBuffer = normalBuffers.cube) {
     setupAttribute(buffer, vPosition, 4);
     setupAttribute(texBuffer, vTexCoord, 2);
+    setupAttribute(normalBuffer, vNormal, 3);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(gl.getUniformLocation(program, "uTexture"), 0);
+
+    // lighting calculate
+    const products = calculateProducts(material);
+    gl.uniform4fv(ambientProductLoc, flatten(products.ambient));
+    gl.uniform4fv(diffuseProductLoc, flatten(products.diffuse));
+    gl.uniform4fv(specularProductLoc, flatten(products.specular));
+    gl.uniform4fv(lightPositionLoc, flatten(lightPosition));
+    gl.uniform1f(shininessLoc, materialShininess);
 
     gl.uniformMatrix4fv(modelViewLoc, false, flatten(matrix));
     gl.uniform4fv(colorLoc, color);
@@ -200,178 +281,177 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
     // 몸통
     figure[0] = createNode(
         mult(mult(mV, translate(horsePosition[0] - horsesCurSpeed + 10, horsePosition[1], horsePosition[2])), rotate(1 / 5 * legAngles[3], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1, 0, 0, 1), buffers.wideCube, wideCubePoints.length, texBuffer, texture),
+        () => drawCube(modelViewMatrix, bodyMaterial, vec4(1, 0, 0, 1), buffers.wideCube, wideCubePoints.length, texBuffer, texture, normalBuffers.wideCube),
         null, 1
     );
 
     // 다리1
     figure[1] = createNode(
         mult(translate(0.25, -0.15, -0.15), rotate(1 / 5 * legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseThigh, horseThighPoints.length, texBuffer, texture),
+        () => drawCube(modelViewMatrix, thighMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseThigh, horseThighPoints.length, texBuffer, texture, normalBuffers.horseThigh),
         5, 2
     );
     figure[2] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffer, texture),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffer, texture, normalBuffers.tallCube),
         null, 3
     );
     figure[3] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffer, texture),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffer, texture, normalBuffers.horseCalf),
         null, 4
     );
     figure[4] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black, normalBuffers.horseHoof),
         null, null
     );
 
     // 다리2
     figure[5] = createNode(
         mult(translate(0.25, -0.15, 0.15), rotate(1 / 5 * legAngles[3], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseThigh, horseThighPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, thighMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseThigh, horseThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseThigh),
         9, 6
     );
     figure[6] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black, normalBuffers.tallCube),
         null, 7
     );
     figure[7] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
         null, 8
     );
     figure[8] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black, normalBuffers.horseHoof),
         null, null
     );
 
     // 꼬리
     figure[9] = createNode(
         mult(translate(0.35, 0, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
         11, 10
     );
     figure[10] = createNode(
         mult(translate(0, -0.15, 0), rotate(legAngles[3], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
         null, null
     );
 
     // 머리
     figure[11] = createNode(
         mult(translate(-0.35, 0.15, 0), rotate(0.4 * legAngles[1] + 240, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black, normalBuffers.trapezoid),
         15, 12
     );
     figure[12] = createNode(
         mult(translate(0, -0.2, 0), rotate(0, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black, normalBuffers.trapezoid),
         null, 13
     );
     figure[13] = createNode(
         mult(translate(0.1, -0.17, 0), rotate(60, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial,vec4(1.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black, normalBuffers.trapezoid),
         23, 14
     );
     figure[14] = createNode(
         mult(translate(0.05, -0.09, -0), rotate(60, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial,vec4(1.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black, normalBuffers.trapezoid),
         null, null
     );
 
     // 다리3
     figure[15] = createNode(
         mult(translate(-0.20, -0.15, -0.15), rotate(1 / 5 * legAngles[3], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, thighMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseFrontThigh),
         19, 16
     );
     figure[16] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black, normalBuffers.tallCube),
         null, 17
     );
     figure[17] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
         null, 18
     );
     figure[18] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black, normalBuffers.horseHoof),
         null, null
     );
 
     // 다리4
     figure[19] = createNode(
         mult(translate(-0.20, -0.15, 0.15), rotate(1 / 5 * legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, thighMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseFrontThigh),
         null, 20
     );
     figure[20] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black, normalBuffers.tallCube),
         null, 21
     );
     figure[21] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
         null, 22
     );
     figure[22] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black, normalBuffers.horseHoof),
         null, null
     );
 
     // 귀 양쪽
     figure[23] = createNode(
         mult(translate(-0.02, -0.3, 0.1), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, thighMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseFrontThigh),
         24, null
     );
     figure[24] = createNode(
         mult(translate(-0.02, -0.3, -0.1), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black),
+        () => drawCube(modelViewMatrix, thighMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseFrontThigh),
         25, null
     );
 
     // 갈귀
     figure[25] = createNode(
-        mult(translate(-0.02, -0.3, -0.0), rotate(legAngles[1] + 60, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
-        26,
-        null
-    );
+            mult(translate(-0.02, -0.3, -0.0), rotate(legAngles[1] + 60, [0, 0, 1])),
+            () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white, normalBuffers.horseMane),
+            26,
+            null
+        );
 
     figure[26] = createNode(
-        mult(translate(-0.1, -0.05, -0.0), rotate(legAngles[2] + 60, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
-        27,
-        null
-    );
+            mult(translate(-0.1, -0.05, -0.0), rotate(legAngles[2] + 60, [0, 0, 1])),
+            () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white, normalBuffers.horseMane),
+            27,
+            null
+        );
 
 
     figure[27] = createNode(
-        mult(translate(-0.1, -0.1, -0.0), rotate(legAngles[3] + 60, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
-        28,
-        null
-    );
-
+            mult(translate(-0.1, -0.1, -0.0), rotate(legAngles[3] + 60, [0, 0, 1])),
+            () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white, normalBuffers.horseMane),
+            28,
+            null
+        );
+   
     for (let i = 28; i <= 36; i++) {
         let y = -0.3 + 0.05 * (i - 25);
         figure[i] = createNode(
             mult(translate(-0.1, y, 0), rotate(legAngles[(i - 25) % 4] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.yellow, textures.yellow),
+            () => drawCube(modelViewMatrix, calfMaterial,vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white, normalBuffers.horseCalf),
             i < 36 ? i + 1 : null,
             null
         );
     }
 }
-
 // --- Animation ---
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -441,6 +521,25 @@ function setupUI() {
         }
     });
 
+
+    // 조명 핸들러
+     document.getElementById("lightX").addEventListener("input", function() {
+        lightPosition[0] = parseFloat(this.value);
+    });
+    document.getElementById("lightY").addEventListener("input", function() {
+        lightPosition[1] = parseFloat(this.value);
+    });
+    document.getElementById("lightZ").addEventListener("input", function() {
+        lightPosition[2] = parseFloat(this.value);
+    });
+    document.getElementById("shininess").addEventListener("input", function() {
+        materialShininess = parseFloat(this.value);
+    });
+
+    document.getElementById("spawnBtn").onclick = function () {
+        const count = parseInt(document.getElementById("horseCount").value);
+        spawnHorses(count);
+    };
 }
 
 // --- Main ---
@@ -461,6 +560,13 @@ window.onload = function init() {
     colorLoc = gl.getUniformLocation(program, "uColor");
     vPosition = gl.getAttribLocation(program, "vPosition");
     vTexCoord = gl.getAttribLocation(program, "vTexCoord");
+    vNormal = gl.getAttribLocation(program, "vNormal");
+
+    ambientProductLoc = gl.getUniformLocation(program, "ambientProduct");
+    diffuseProductLoc = gl.getUniformLocation(program, "diffuseProduct");
+    specularProductLoc = gl.getUniformLocation(program, "specularProduct");
+    lightPositionLoc = gl.getUniformLocation(program, "lightPosition");
+    shininessLoc = gl.getUniformLocation(program, "shininess");
 
     setupBuffersAndTextures();
     setupUI();
