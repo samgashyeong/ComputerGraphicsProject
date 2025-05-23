@@ -9,10 +9,10 @@ var stack = [];
 let angle = 60;
 
 var horseCount = 30;
-var lightAmbient = vec4(0.2,0.2,0.2,1.0);
-var lightDiffuse = vec4(1.0,1.0,0.0,1.0);
-var lightSpecular = vec4(1.0,1.0,1.0,1.0);
-var lightPosition = vec4(5.0,5.0,5.0,1.0);
+var lightAmbient  = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 ambient
+var lightDiffuse  = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 diffuse
+var lightSpecular = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 specular
+var lightPosition = vec4(5.0, 5.0, 5.0, 1.0); // 위치형 광원 (point light)
 
 var ambientProductLoc;
 var diffuseProductLoc;
@@ -549,7 +549,7 @@ window.onload = function init() {
     if (!gl) { alert("WebGL isn't available"); }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(1., 1., 1.0, 1.0);
+    gl.clearColor(0., 1., 1.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
     program = initShaders(gl, "vertex-shader", "fragment-shader");
