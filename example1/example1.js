@@ -8,6 +8,8 @@ var modelViewMatrix, ptMatrix;
 var stack = [];
 let angle = 60;
 
+
+var horseCount = 30;
 const cameraPositions = [
     vec3(3, 2, 4),
     vec3(0, 5, 8),
@@ -93,11 +95,13 @@ function setupBuffersAndTextures() {
     texBuffers.brown = createBufferWithData(cubeTexCoords);
     texBuffers.black = createBufferWithData(cubeTexCoords);
     texBuffers.white = createBufferWithData(cubeTexCoords);
+    texBuffers.yellow = createBufferWithData(cubeTexCoords);
 
     // Texture Objects
     textures.brown = createTextureWithImage("texture/brown_1.png");
     textures.black = createTextureWithImage("texture/black_1.png");
     textures.white = createTextureWithImage("texture/white_1.png");
+    textures.yellow = createTextureWithImage("texture/yellow_1.png");
 }
 
 // --- Utility ---
@@ -117,10 +121,10 @@ function createHorseInstance(existingPositions) {
         legAngles: [0, 0, 0, 0],
         legDirections: [1, 1, 1, 1],
         legSpeeds: [
-            1.5 + Math.random()*1.2,
-            2.2 + Math.random()*1.2,
-            1.0 + Math.random()*1.2,
-            2.8 + Math.random()*1.2,
+            1.5 + Math.random() * 1.2,
+            2.2 + Math.random() * 1.2,
+            1.0 + Math.random() * 1.2,
+            2.8 + Math.random() * 1.2,
         ],
         runningSpeed: [1.2 + Math.random()],
     };
@@ -336,52 +340,67 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
 
     // 갈귀
     figure[25] = createNode(
-            mult(translate(-0.02, -0.3, -0.0), rotate(legAngles[1] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
-            26,
-            null
-        );
+        mult(translate(-0.02, -0.3, -0.0), rotate(legAngles[1] + 60, [0, 0, 1])),
+        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
+        26,
+        null
+    );
 
     figure[26] = createNode(
-            mult(translate(-0.1, -0.05, -0.0), rotate(legAngles[2] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
-            27,
-            null
-        );
+        mult(translate(-0.1, -0.05, -0.0), rotate(legAngles[2] + 60, [0, 0, 1])),
+        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
+        27,
+        null
+    );
 
 
     figure[27] = createNode(
-            mult(translate(-0.1, -0.1, -0.0), rotate(legAngles[3] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
-            28,
-            null
-        );
-    
+        mult(translate(-0.1, -0.1, -0.0), rotate(legAngles[3] + 60, [0, 0, 1])),
+        () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
+        28,
+        null
+    );
+
     for (let i = 28; i <= 36; i++) {
         let y = -0.3 + 0.05 * (i - 25);
         figure[i] = createNode(
             mult(translate(-0.1, y, 0), rotate(legAngles[(i - 25) % 4] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white),
+            () => drawCube(modelViewMatrix, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.yellow, textures.yellow),
             i < 36 ? i + 1 : null,
             null
         );
     }
 }
+
 // --- Animation ---
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    for (let h = 0; h < horses.length; h++) {
-        let horse = horses[h];
+    if (horseCount > 1) {
+        for (let h = 0; h < horses.length; h++) {
+            let horse = horses[h];
+            for (let i = 0; i < 4; i++) {
+                horse.legAngles[i] += horse.legDirections[i] * horse.legSpeeds[i];
+                if (horse.legAngles[i] > 30) horse.legDirections[i] = -1;
+                if (horse.legAngles[i] < -30) horse.legDirections[i] = 1;
+            }
+            modelViewMatrix = mat4();
+            horsesCurSpeed[h] += horsesSpeed[h];
+            if (horsesCurSpeed[h] > 30) horsesCurSpeed[h] = 0;
+            settingNode(horse.legAngles, horse.position, horsesCurSpeed[h], horseType[h]);
+            traverse(0);
+        }
+    }
+    else {
+        let horse = horses[0];
         for (let i = 0; i < 4; i++) {
-            horse.legAngles[i] += horse.legDirections[i] * horse.legSpeeds[i];
-            if (horse.legAngles[i] > 30) horse.legDirections[i] = -1;
-            if (horse.legAngles[i] < -30) horse.legDirections[i] = 1;
+                horse.legAngles[i] += horse.legDirections[i] * horse.legSpeeds[i];
+                if (horse.legAngles[i] > 30) horse.legDirections[i] = -1;
+                if (horse.legAngles[i] < -30) horse.legDirections[i] = 1;
         }
         modelViewMatrix = mat4();
-        horsesCurSpeed[h] += horsesSpeed[h];
-        if (horsesCurSpeed[h] > 30) horsesCurSpeed[h] = 0;
-        settingNode(horse.legAngles, horse.position, horsesCurSpeed[h], horseType[h]);
+        horsesCurSpeed[0] = 0;
+        settingNode(horse.legAngles, horse.position, horsesCurSpeed[0], horseType[0]);
         traverse(0);
     }
 
@@ -407,8 +426,21 @@ function setupUI() {
     });
     document.getElementById("spawnBtn").onclick = function () {
         const count = parseInt(document.getElementById("horseCount").value);
+        horseCount = count;
         spawnHorses(count);
     };
+
+    document.getElementById("singleHorseToggle").addEventListener("change", function () {
+        if (this.checked) {
+            horseCount = 1;
+            spawnHorses(1);
+        } else {
+            const count = parseInt(document.getElementById("horseCount").value);
+            horseCount = count;
+            spawnHorses(count);
+        }
+    });
+
 }
 
 // --- Main ---
@@ -432,6 +464,6 @@ window.onload = function init() {
 
     setupBuffersAndTextures();
     setupUI();
-    spawnHorses(3);
+    spawnHorses(horseCount);
     render();
 };
