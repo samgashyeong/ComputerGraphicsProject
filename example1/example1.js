@@ -8,6 +8,7 @@ var modelViewMatrix, ptMatrix;
 var stack = [];
 let angle = 60;
 
+var horseCount = 30;
 var lightAmbient = vec4(0.2,0.2,0.2,1.0);
 var lightDiffuse = vec4(1.0,1.0,0.0,1.0);
 var lightSpecular = vec4(1.0,1.0,1.0,1.0);
@@ -440,7 +441,7 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
             28,
             null
         );
-    
+   
     for (let i = 28; i <= 36; i++) {
         let y = -0.3 + 0.05 * (i - 25);
         figure[i] = createNode(
@@ -455,17 +456,31 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    for (let h = 0; h < horses.length; h++) {
-        let horse = horses[h];
+    if (horseCount > 1) {
+        for (let h = 0; h < horses.length; h++) {
+            let horse = horses[h];
+            for (let i = 0; i < 4; i++) {
+                horse.legAngles[i] += horse.legDirections[i] * horse.legSpeeds[i];
+                if (horse.legAngles[i] > 30) horse.legDirections[i] = -1;
+                if (horse.legAngles[i] < -30) horse.legDirections[i] = 1;
+            }
+            modelViewMatrix = mat4();
+            horsesCurSpeed[h] += horsesSpeed[h];
+            if (horsesCurSpeed[h] > 30) horsesCurSpeed[h] = 0;
+            settingNode(horse.legAngles, horse.position, horsesCurSpeed[h], horseType[h]);
+            traverse(0);
+        }
+    }
+    else {
+        let horse = horses[0];
         for (let i = 0; i < 4; i++) {
-            horse.legAngles[i] += horse.legDirections[i] * horse.legSpeeds[i];
-            if (horse.legAngles[i] > 30) horse.legDirections[i] = -1;
-            if (horse.legAngles[i] < -30) horse.legDirections[i] = 1;
+                horse.legAngles[i] += horse.legDirections[i] * horse.legSpeeds[i];
+                if (horse.legAngles[i] > 30) horse.legDirections[i] = -1;
+                if (horse.legAngles[i] < -30) horse.legDirections[i] = 1;
         }
         modelViewMatrix = mat4();
-        horsesCurSpeed[h] += horsesSpeed[h];
-        if (horsesCurSpeed[h] > 30) horsesCurSpeed[h] = 0;
-        settingNode(horse.legAngles, horse.position, horsesCurSpeed[h], horseType[h]);
+        horsesCurSpeed[0] = 0;
+        settingNode(horse.legAngles, horse.position, horsesCurSpeed[0], horseType[0]);
         traverse(0);
     }
 
@@ -489,6 +504,23 @@ function setupUI() {
             valSpan.textContent = this.value;
         };
     });
+    document.getElementById("spawnBtn").onclick = function () {
+        const count = parseInt(document.getElementById("horseCount").value);
+        horseCount = count;
+        spawnHorses(count);
+    };
+
+    document.getElementById("singleHorseToggle").addEventListener("change", function () {
+        if (this.checked) {
+            horseCount = 1;
+            spawnHorses(1);
+        } else {
+            const count = parseInt(document.getElementById("horseCount").value);
+            horseCount = count;
+            spawnHorses(count);
+        }
+    });
+
 
     // 조명 핸들러
      document.getElementById("lightX").addEventListener("input", function() {
@@ -538,6 +570,6 @@ window.onload = function init() {
 
     setupBuffersAndTextures();
     setupUI();
-    spawnHorses(3);
+    spawnHorses(horseCount);
     render();
 };

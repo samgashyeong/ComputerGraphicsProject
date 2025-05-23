@@ -8,15 +8,14 @@
     <script id="vertex-shader" type="x-shader/x-vertex">
 attribute vec4 vPosition;
 attribute vec2 vTexCoord;      // 추가
+varying vec2 fTexCoord;        // 추가
 attribute vec3 vNormal;        // 법선벡터
 varying vec2 fTexCoord;        // 추가
 varying vec4 fColor;
 
-
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 
-// 조명 변수
 uniform vec4 ambientProduct, diffuseProduct, specularProduct;
 uniform vec4 lightPosition;
 uniform float shininess;
@@ -86,6 +85,7 @@ void main() {
     <div>
         <label>말 마리 수: <input type="number" id="horseCount" min="1" max="20" value="3"></label>
         <button id="spawnBtn">생성</button>
+         <label><input type="checkbox" id="singleHorseToggle"> 모델링링 보기</label>
     </div>
     <div>
         <label>Eye X: <input type="range" id="eyeX" min="-20" max="20" step="0.1" value="3"></label>
@@ -95,7 +95,6 @@ void main() {
         <label>Eye Z: <input type="range" id="eyeZ" min="-20" max="20" step="0.1" value="4"></label>
         <span id="eyeZVal">4</span>
     </div>
-
     <!-- 조명 제어 UI -->
      <div>
         <label>Light Position X : <input type="range" id="lightX" min="-10" max="10" value="5" step="0.1"</label>
