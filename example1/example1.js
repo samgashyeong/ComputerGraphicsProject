@@ -535,7 +535,7 @@ function render() {
         }
         modelViewMatrix = mat4();
         horsesCurSpeed[0] = 0;
-        settingNode(horse.legAngles, horse.position, horsesCurSpeed[0], horseType[0]);
+        settingNode(horse.legAngles, vec3(-10, 0, 0), horsesCurSpeed[0], horseType[0]);
         traverse(0);
     }
     
