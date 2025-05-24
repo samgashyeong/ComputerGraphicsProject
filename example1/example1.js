@@ -27,14 +27,8 @@ const cameraPositions = [
     vec3(0, 5, 8),
     vec3(-5, 1, 5),
 ];
-const cubeIndices = [
-    1, 0, 3, 1, 3, 2, // 앞면
-    2, 3, 7, 2, 7, 6, // 오른쪽면
-    3, 0, 4, 3, 4, 7, // 아래면
-    6, 5, 1, 6, 1, 2, // 윗면
-    4, 5, 6, 4, 6, 7, // 뒷면
-    5, 4, 0, 5, 0, 1  // 왼쪽면
-];
+
+
 const baseNormals = [
     vec3( 0,  0,  1),
     vec3( 1,  0,  0),
@@ -43,6 +37,7 @@ const baseNormals = [
     vec3( 0,  0, -1),
     vec3(-1,  0,  0)
 ];
+
 
 let eyeSlider = { x: 3, y: 2, z: 4 };
 let currentCamera = 0;
@@ -62,6 +57,8 @@ function createTextureWithImage(src) {
     const image = new Image();
     image.onload = function () {
         gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         gl.generateMipmap(gl.TEXTURE_2D);
     };
@@ -94,6 +91,15 @@ function makeNormals() {
     return normals;
 }
 
+function makeNormals() {
+    let normals = [];
+    for (let i = 0; i < cubeIndices.length; ++i){
+        let faceIndex = Math.floor(i / 6);
+        normals.push(baseNormals[faceIndex]);
+    }
+    return normals;
+}
+
 // --- Buffer & Texture Setup ---
 let buffers = {}, textures = {}, texBuffers = {}, texAttribs = {}, normalBuffers = {};
 
@@ -107,7 +113,7 @@ const horseCalfPoints = makePoints(horseCalfVertices);
 const horseHoofPoints = makePoints(horseHoofVertices);
 const trapezoidPoints = makePoints(trapezoidVertices);
 const horseManePoints = makePoints(horseManeVertices);
-
+const groundPoints = makePoints(groundVertices);
 // create normal vector
 const cubeNormalPoints = makeNormals();
 
@@ -122,17 +128,19 @@ function setupBuffersAndTextures() {
     buffers.trapezoid = createBufferWithData(trapezoidPoints);
     buffers.horseFrontThigh = createBufferWithData(horseFrontThighPoints);
     buffers.horseMane = createBufferWithData(horseManePoints);
+    buffers.ground = createBufferWithData(groundPoints);
 
     // Texture Buffers (모두 동일 구조라면 하나만 써도 됨)
     texBuffers.brown = createBufferWithData(cubeTexCoords);
     texBuffers.black = createBufferWithData(cubeTexCoords);
     texBuffers.white = createBufferWithData(cubeTexCoords);
+    texBuffers.ground = createBufferWithData(groundTexCoords);
 
     // Texture Objects
     textures.brown = createTextureWithImage("texture/brown_1.png");
     textures.black = createTextureWithImage("texture/black_1.png");
     textures.white = createTextureWithImage("texture/white_1.png");
-
+    textures.ground = createTextureWithImage("texture/ground_1.jpg");
     // normal vector buffer
     normalBuffers.cube = createBufferWithData(cubeNormalPoints);
     normalBuffers.tallCube = createBufferWithData(cubeNormalPoints);
@@ -143,6 +151,7 @@ function setupBuffersAndTextures() {
     normalBuffers.trapezoid = createBufferWithData(cubeNormalPoints);
     normalBuffers.horseFrontThigh = createBufferWithData(cubeNormalPoints);
     normalBuffers.horseMane = createBufferWithData(cubeNormalPoints);
+    normalBuffers.ground = createBufferWithData(cubeNormalPoints);
 }
 
 // --- Utility ---
@@ -219,7 +228,6 @@ function calculateProducts(material){
 }
 
 
-// --- Drawing ---
 function drawCube(matrix, material, color, buffer, vertexCount, texBuffer = texBuffers.black, texture = textures.black, normalBuffer = normalBuffers.cube) {
     setupAttribute(buffer, vPosition, 4);
     setupAttribute(texBuffer, vTexCoord, 2);
@@ -456,6 +464,12 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    let eye = vec3(eyeSlider.x, eyeSlider.y, eyeSlider.z);
+    let mV = mult(
+        lookAt(eye, vec3(0, 0, 0), vec3(0, 1, 0)),
+        mult(rotate(angle, [0, 1, 0]), scalem(1, 1, 1))
+    );
+    drawCube(mult(mV, translate(0, -0.7, 0)), bodyMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.ground, groundPoints.length, texBuffers.ground, textures.ground, normalBuffers.ground);
     if (horseCount > 1) {
         for (let h = 0; h < horses.length; h++) {
             let horse = horses[h];
@@ -483,6 +497,10 @@ function render() {
         settingNode(horse.legAngles, horse.position, horsesCurSpeed[0], horseType[0]);
         traverse(0);
     }
+    
+
+    
+
 
     ptMatrix = perspective(45, canvasW / canvasH, 0.1, 1000.0);
     gl.uniformMatrix4fv(projectionLoc, false, flatten(ptMatrix));

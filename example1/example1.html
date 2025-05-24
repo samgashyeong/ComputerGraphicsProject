@@ -60,8 +60,10 @@ varying vec2 fTexCoord;
 varying vec4 fColor;
 
 void main() {
-    vec4 texColor = texture2D(uTexture, fTexCoord); // 추가
-    gl_FragColor = texColor * fColor;               // 곱하기로 색상 조합
+    vec4 texColor = texture2D(uTexture, fTexCoord); // 텍스처 색상
+    
+    vec3 finalColor = texColor.rgb * 0.8;     // 텍스처 색상에 조명 곱하기
+    gl_FragColor = vec4(finalColor, texColor.a);   // 최종 색상 출력
 }
 </script>
     <script type="text/javascript" src="../Common/webgl-utils.js"></script>
@@ -71,6 +73,8 @@ void main() {
     <script src="model.js"></script>
     <script type="text/javascript" src="example1.js"></script>
 </head>
+
+
 
 <body>
     <canvas id="gl-canvas" width="1024" height="1024">
