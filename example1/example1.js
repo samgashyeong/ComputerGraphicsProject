@@ -103,6 +103,11 @@ function makeNormals() {
 // --- Buffer & Texture Setup ---
 let buffers = {}, textures = {}, texBuffers = {}, texAttribs = {}, normalBuffers = {};
 
+let currentWeatherBuffer = null;
+let currentWeatherTexture = null;
+let currentWeatherTexBuffer = null;
+let currentWeatherNormalBuffer = null;
+
 // 각 부위별 points
 const cubePoints = makePoints(cubeVertices);
 const tallCubePoints = makePoints(tallCubeVertices);
@@ -135,12 +140,19 @@ function setupBuffersAndTextures() {
     texBuffers.black = createBufferWithData(cubeTexCoords);
     texBuffers.white = createBufferWithData(cubeTexCoords);
     texBuffers.ground = createBufferWithData(groundTexCoords);
+    texBuffers.spring = createBufferWithData(groundTexCoords);
+    texBuffers.fall = createBufferWithData(groundTexCoords);
+    texBuffers.snow = createBufferWithData(groundTexCoords);
 
     // Texture Objects
     textures.brown = createTextureWithImage("texture/brown_1.png");
     textures.black = createTextureWithImage("texture/black_1.png");
     textures.white = createTextureWithImage("texture/white_1.png");
     textures.ground = createTextureWithImage("texture/ground_1.jpg");
+    textures.spring = createTextureWithImage("texture/spring_1.png");
+    textures.fall = createTextureWithImage("texture/fall_1.png");
+    textures.snow = createTextureWithImage("texture/snow_1.png");
+
     // normal vector buffer
     normalBuffers.cube = createBufferWithData(cubeNormalPoints);
     normalBuffers.tallCube = createBufferWithData(cubeNormalPoints);
@@ -152,6 +164,14 @@ function setupBuffersAndTextures() {
     normalBuffers.horseFrontThigh = createBufferWithData(cubeNormalPoints);
     normalBuffers.horseMane = createBufferWithData(cubeNormalPoints);
     normalBuffers.ground = createBufferWithData(cubeNormalPoints);
+    normalBuffers.spring = createBufferWithData(cubeNormalPoints);
+    normalBuffers.fall = createBufferWithData(cubeNormalPoints);
+    normalBuffers.snow = createBufferWithData(cubeNormalPoints);
+
+
+    currentWeatherTexBuffer = texBuffers.ground;
+    currentWeatherTexture = textures.ground;
+    currentWeatherNormalBuffer = normalBuffers.ground;
 }
 
 // --- Utility ---
@@ -469,7 +489,7 @@ function render() {
         lookAt(eye, vec3(0, 0, 0), vec3(0, 1, 0)),
         mult(rotate(angle, [0, 1, 0]), scalem(1, 1, 1))
     );
-    drawCube(mult(mV, translate(0, -0.7, 0)), bodyMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.ground, groundPoints.length, texBuffers.ground, textures.ground, normalBuffers.ground);
+    drawCube(mult(mV, translate(0, -0.7, 0)), bodyMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.ground, groundPoints.length, currentWeatherTexBuffer, currentWeatherTexture, currentWeatherNormalBuffer);
     if (horseCount > 1) {
         for (let h = 0; h < horses.length; h++) {
             let horse = horses[h];
@@ -558,6 +578,39 @@ function setupUI() {
         const count = parseInt(document.getElementById("horseCount").value);
         spawnHorses(count);
     };
+
+    const seasonTextures = {
+        spring: textures.spring,
+        summer: textures.ground,
+        fall: textures.fall,
+        winter: textures.snow,
+    };
+
+    const seasonTexBuffers = {
+        spring: texBuffers.spring,
+        summer: texBuffers.ground,
+        fall: texBuffers.fall,
+        winter: texBuffers.snow,
+    };
+
+    const seasonNormalBuffers = {
+        spring: normalBuffers.spring,
+        summer: normalBuffers.ground,
+        fall: normalBuffers.fall,
+        winter: normalBuffers.snow,
+    };
+
+    ["spring", "summer", "fall", "winter"].forEach(season => {
+        document.getElementById(season).addEventListener("change", function () {
+            if (this.checked) {
+                // 선택한 계절의 텍스처만 적용
+                currentWeatherTexBuffer = seasonTexBuffers[season];
+                currentWeatherTexture = seasonTextures[season];
+                currentWeatherNormalBuffer = seasonNormalBuffers[season];
+            }
+        });
+    });
+
 }
 
 // --- Main ---

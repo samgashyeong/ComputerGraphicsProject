@@ -16,9 +16,9 @@ for (let f = 0; f < 6; ++f) {
 
 const groundFace = [
     vec2(0, 0), // 왼쪽 아래
-    vec2(50, 0), // 오른쪽 아래
-    vec2(50, 50), // 오른쪽 위
-    vec2(0, 50)  // 왼쪽 위
+    vec2(100, 0), // 오른쪽 아래
+    vec2(100, 100), // 오른쪽 위
+    vec2(0, 100)  // 왼쪽 위
 ];
 const groundTexCoords = [];
 for (let f = 0; f < 6; ++f) {
