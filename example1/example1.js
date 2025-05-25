@@ -286,6 +286,7 @@ function drawCube(matrix, material, color, buffer, vertexCount, texBuffer = texB
     gl.uniformMatrix4fv(modelViewLoc, false, flatten(matrix));
     gl.uniform4fv(colorLoc, color);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+
 }
 
 // --- Node/Hierarchy ---
@@ -605,7 +606,7 @@ function setupUI() {
 
 
     // 조명 핸들러
-     document.getElementById("lightX").addEventListener("input", function() {
+    document.getElementById("lightX").addEventListener("input", function() {
         lightPosition[0] = parseFloat(this.value);
     });
     document.getElementById("lightY").addEventListener("input", function() {
@@ -705,25 +706,40 @@ window.onload = function init() {
     render();
 };
 
+
 // --- Rain Effect ---
 const RAIN_COUNT = 500;
 let rainParticles = [];
+let rainLineBuffer = null;
+let rainTexBuffer = null;
 
 function initRain() {
-    const rainRange = 200; // 전체 범위 크기 (예: -100 ~ 100)
+    const rainRange = 200;
     rainParticles = [];
     for (let i = 0; i < RAIN_COUNT; i++) {
         rainParticles.push({
-            x: Math.random() * rainRange - rainRange / 2,   // -100 ~ 100
-            y: Math.random() * 3 + 10,                       // 1 ~ 4 (위쪽에서 시작)
-            z: Math.random() * rainRange - rainRange / 2,   // -100 ~ 100
+            x: Math.random() * rainRange - rainRange / 2,
+            y: Math.random() * 3 + 10,
+            z: Math.random() * rainRange - rainRange / 2,
             speed: Math.random() * 0.03 + 0.2
         });
+    }
+    if (!rainLineBuffer) {
+        let rainVertices = [
+            vec4(0, 0, 0, 1),
+            vec4(0, -0.2, 0, 1)
+        ];
+        rainLineBuffer = createBufferWithData(rainVertices);
+        let rainTexCoords = [
+            vec2(0.0, 1.0),
+            vec2(0.0, 0.0)
+        ];
+        rainTexBuffer = createBufferWithData(rainTexCoords);
     }
 }
 
 function renderRain(mv) {
-    const rainRange = 200; // -100 ~ 100
+    const rainRange = 200;
     gl.useProgram(program);
     for (let i = 0; i < rainParticles.length; i++) {
         let p = rainParticles[i];
@@ -734,45 +750,21 @@ function renderRain(mv) {
             p.z = Math.random() * rainRange - rainRange / 2;
             p.speed = Math.random() * 0.03 + 0.2;
         }
-        let rainStart = mult(mv, translate(p.x, p.y, p.z));
-        let rainEnd = mult(mv, translate(p.x, p.y - 0.2, p.z));
-        drawRainLine(rainStart, rainEnd);
+        let modelView = mult(mv, translate(p.x, p.y, p.z));
+        drawRainLine(modelView);
     }
 }
 
 
-function drawRainLine(startMatrix, endMatrix) {
-    let rainVertices = [
-        vec4(0, 0, 0, 1),
-        vec4(0, -0.2, 0, 1)
-    ];
-    let rainTexCoords = [
-        vec2(0.0, 1.0),
-        vec2(0.0, 0.0)
-    ];
-
-    // 버퍼 생성 및 바인딩
-    let buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, flatten(rainVertices), gl.STREAM_DRAW);
-    setupAttribute(buffer, vPosition, 4);
-
-    // 텍스처 좌표 버퍼 추가
-    let texBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, texBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, flatten(rainTexCoords), gl.STREAM_DRAW);
-    setupAttribute(texBuffer, vTexCoord, 2);
+function drawRainLine(modelViewMatrix) {
+    setupAttribute(rainLineBuffer, vPosition, 4);
+    setupAttribute(rainTexBuffer, vTexCoord, 2);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, textures.rain);
     gl.uniform1i(gl.getUniformLocation(program, "uTexture"), 0);
 
-    // 색상 및 변환
     gl.uniform4fv(colorLoc, vec4(1.0, 1.0, 1.0, 1));
-    gl.uniformMatrix4fv(modelViewLoc, false, flatten(startMatrix));
+    gl.uniformMatrix4fv(modelViewLoc, false, flatten(modelViewMatrix));
     gl.drawArrays(gl.LINES, 0, 2);
-
-    // 버퍼 해제
-    gl.deleteBuffer(buffer);
-    gl.deleteBuffer(texBuffer);
 }

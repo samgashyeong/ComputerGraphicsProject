@@ -88,17 +88,23 @@ void main() {
                 <label><input type="radio" name="camera" id="cam3"> Camera 3</label>
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
-                <label>말 마리 수: <input type="number" id="horseCount" min="1" max="20" value="3"></label>
+                <label>말 마리 수: <input type="number" id="horseCount" min="1" max="30" value="30"></label>
                 <button id="spawnBtn">생성</button>
                 <label><input type="checkbox" id="singleHorseToggle"> 모델링만 보기</label>
             </div>
-            <div>
-                <label>Eye X: <input type="range" id="eyeX" min="-20" max="20" step="0.1" value="3"></label>
-                <span id="eyeXVal">3</span>
-                <label>Eye Y: <input type="range" id="eyeY" min="-20" max="20" step="0.1" value="2"></label>
-                <span id="eyeYVal">2</span>
-                <label>Eye Z: <input type="range" id="eyeZ" min="-20" max="20" step="0.1" value="4"></label>
-                <span id="eyeZVal">4</span>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; flex-direction: row; gap: 8px;">
+                    <label>Eye X: <input type="range" id="eyeX" min="-20" max="20" step="0.1" value="3"></label>
+                    <span id="eyeXVal">0</span>
+                </div>
+                <div style="display: flex; flex-direction: row; gap: 8px;">
+                    <label>Eye Y: <input type="range" id="eyeY" min="-20" max="20" step="0.1" value="4"></label>
+                    <span id="eyeYVal">0</span>
+                </div>
+                <div style="display: flex; flex-direction: row; gap: 8px;">
+                    <label>Eye Z: <input type="range" id="eyeZ" min="-20" max="20" step="0.1" value="4"></label>
+                    <span id="eyeZVal">0</span>
+                </div>
             </div>
             <!-- 조명 제어 UI -->
             <div>
