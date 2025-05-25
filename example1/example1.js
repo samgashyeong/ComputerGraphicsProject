@@ -108,6 +108,10 @@ let currentWeatherTexture = null;
 let currentWeatherTexBuffer = null;
 let currentWeatherNormalBuffer = null;
 
+
+//메모리 최적화
+for (let i = 0; i < 100; i++) figure[i] = createNode(null, null, null, null);
+
 // 각 부위별 points
 const cubePoints = makePoints(cubeVertices);
 const tallCubePoints = makePoints(tallCubeVertices);
@@ -315,8 +319,8 @@ function traverse(Id) {
     if (figure[Id].sibling != null) traverse(figure[Id].sibling);
 }
 
+
 function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
-    for (let i = 0; i < 100; i++) figure[i] = createNode(null, null, null, null);
 
     let eye = vec3(eyeSlider.x, eyeSlider.y, eyeSlider.z);
     let mV = mult(
