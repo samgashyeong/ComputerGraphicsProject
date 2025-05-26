@@ -9,6 +9,10 @@ var stack = [];
 let angle = 60;
 
 var horseCount = 30;
+var lightAmbient  = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 ambient
+var lightDiffuse  = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 diffuse
+var lightSpecular = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 specular
+var lightPosition = vec4(5.0, 5.0, 5.0, 1.0); // 위치형 광원 (point light)
 var lightAmbient = vec4(0.2,0.2,0.2,1.0);
 var lightDiffuse = vec4(1.0,1.0,0.0,1.0);
 var lightSpecular = vec4(1.0,1.0,1.0,1.0);
@@ -27,14 +31,8 @@ const cameraPositions = [
     vec3(0, 5, 8),
     vec3(-5, 1, 5),
 ];
-const cubeIndices = [
-    1, 0, 3, 1, 3, 2, // 앞면
-    2, 3, 7, 2, 7, 6, // 오른쪽면
-    3, 0, 4, 3, 4, 7, // 아래면
-    6, 5, 1, 6, 1, 2, // 윗면
-    4, 5, 6, 4, 6, 7, // 뒷면
-    5, 4, 0, 5, 0, 1  // 왼쪽면
-];
+
+
 const baseNormals = [
     vec3( 0,  0,  1),
     vec3( 1,  0,  0),
@@ -43,6 +41,7 @@ const baseNormals = [
     vec3( 0,  0, -1),
     vec3(-1,  0,  0)
 ];
+
 
 let eyeSlider = { x: 3, y: 2, z: 4 };
 let currentCamera = 0;
@@ -62,6 +61,8 @@ function createTextureWithImage(src) {
     const image = new Image();
     image.onload = function () {
         gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
         gl.generateMipmap(gl.TEXTURE_2D);
     };
@@ -94,8 +95,22 @@ function makeNormals() {
     return normals;
 }
 
+function makeNormals() {
+    let normals = [];
+    for (let i = 0; i < cubeIndices.length; ++i){
+        let faceIndex = Math.floor(i / 6);
+        normals.push(baseNormals[faceIndex]);
+    }
+    return normals;
+}
+
 // --- Buffer & Texture Setup ---
 let buffers = {}, textures = {}, texBuffers = {}, texAttribs = {}, normalBuffers = {};
+
+let currentWeatherBuffer = null;
+let currentWeatherTexture = null;
+let currentWeatherTexBuffer = null;
+let currentWeatherNormalBuffer = null;
 
 // 각 부위별 points
 const cubePoints = makePoints(cubeVertices);
@@ -107,7 +122,7 @@ const horseCalfPoints = makePoints(horseCalfVertices);
 const horseHoofPoints = makePoints(horseHoofVertices);
 const trapezoidPoints = makePoints(trapezoidVertices);
 const horseManePoints = makePoints(horseManeVertices);
-
+const groundPoints = makePoints(groundVertices);
 // create normal vector
 const cubeNormalPoints = makeNormals();
 
@@ -122,16 +137,33 @@ function setupBuffersAndTextures() {
     buffers.trapezoid = createBufferWithData(trapezoidPoints);
     buffers.horseFrontThigh = createBufferWithData(horseFrontThighPoints);
     buffers.horseMane = createBufferWithData(horseManePoints);
+    buffers.ground = createBufferWithData(groundPoints);
 
     // Texture Buffers (모두 동일 구조라면 하나만 써도 됨)
     texBuffers.brown = createBufferWithData(cubeTexCoords);
     texBuffers.black = createBufferWithData(cubeTexCoords);
     texBuffers.white = createBufferWithData(cubeTexCoords);
+    texBuffers.black2 = createBufferWithData(cubeTexCoords);
+    texBuffers.yellow = createBufferWithData(cubeTexCoords);
+    texBuffers.brown2 = createBufferWithData(cubeTexCoords);    
+
+    texBuffers.ground = createBufferWithData(groundTexCoords);
+    texBuffers.spring = createBufferWithData(groundTexCoords);
+    texBuffers.fall = createBufferWithData(groundTexCoords);
+    texBuffers.snow = createBufferWithData(groundTexCoords);
 
     // Texture Objects
     textures.brown = createTextureWithImage("texture/brown_1.png");
     textures.black = createTextureWithImage("texture/black_1.png");
     textures.white = createTextureWithImage("texture/white_1.png");
+    textures.black2 = createTextureWithImage("texture/black_2.png");
+    textures.yellow = createTextureWithImage("texture/yellow_1.png");
+    textures.brown2 = createTextureWithImage("texture/brown_2.png");
+    
+    textures.ground = createTextureWithImage("texture/ground_1.jpg");
+    textures.spring = createTextureWithImage("texture/spring_1.png");
+    textures.fall = createTextureWithImage("texture/fall_1.png");
+    textures.snow = createTextureWithImage("texture/snow_1.png");
 
     // normal vector buffer
     normalBuffers.cube = createBufferWithData(cubeNormalPoints);
@@ -143,6 +175,14 @@ function setupBuffersAndTextures() {
     normalBuffers.trapezoid = createBufferWithData(cubeNormalPoints);
     normalBuffers.horseFrontThigh = createBufferWithData(cubeNormalPoints);
     normalBuffers.horseMane = createBufferWithData(cubeNormalPoints);
+    normalBuffers.ground = createBufferWithData(cubeNormalPoints);
+    normalBuffers.spring = createBufferWithData(cubeNormalPoints);
+    normalBuffers.fall = createBufferWithData(cubeNormalPoints);
+    normalBuffers.snow = createBufferWithData(cubeNormalPoints);
+
+    currentWeatherTexBuffer = texBuffers.ground;
+    currentWeatherTexture = textures.ground;
+    currentWeatherNormalBuffer = normalBuffers.ground;
 }
 
 // --- Utility ---
@@ -190,9 +230,9 @@ function spawnHorses(count) {
 
 // material initialize
 const bodyMaterial = {
-    ambient: vec4(1.0,1.2,0.0,1.0),
-    diffuse: vec4(1.0,1.8,0.0,1.0),
-    specular: vec4(1.0,1.8,0.0,1.0)
+    ambient: vec4(0.1,0.1,0.1,1.0),
+    diffuse: vec4(0.8,0.8,0.8,1.0),
+    specular: vec4(1.0,1.0,1.0,1.0)
 };
 const thighMaterial = {
     ambient: vec4(0.9,0.2,0.0,1.0),
@@ -209,6 +249,50 @@ const hoofMaterial = {
     diffuse: vec4(0.1,0.1,0.1,1.0),
     specular: vec4(0.8,0.8,0.8,1.0)
 };
+const groundMaterial = {
+    ambient: vec4(1.0,1.0,1.0,1.0),
+    diffuse: vec4(0.1,0.1,0.1,1.0),
+    specular: vec4(0.0,0.0,0.0,1.0),
+}
+
+// Test
+const uniformMaterial = {
+    ambient: vec4(1.0,1.0,1.0,1.0),
+    diffuse: vec4(0.8,0.8,0.8,1.0),
+    specular: vec4(1.0,1.0,1.0,1.0),
+}
+
+// 계절별 조명 강도 조절
+// const seasonLighting = {
+//     spring: {
+//         ambient: vec4(0.5,0.5,0.5,1.0),
+//         diffuse: vec4(0.8,0.8,0.8,1.0)
+//     },
+//     summer: {
+//         ambient: vec4(0.4,0.4,0.4,1.0),
+//         diffuse: vec4(0.7,0.7,0.7,1.0)
+//     },
+//     fall: {
+//         ambient: vec4(0.3,0.3,0.3,1.0),
+//         diffuse: vec4(0.5,0.5,0.5,1.0)
+//     },
+//     winder: {
+//         ambient: vec4(0.1,0.1,0.1,1.0),
+//         diffuse: vec4(0.3,0.3,0.3,1.0)
+//     }
+// };
+
+// 날씨별 조명 강도 조절
+const weatherLighting = {
+    dark: {
+        ambient: vec4(0.3,0.3,0.3,1.0),
+        diffuse: vec4(0.5,0.5,0.5,1.0)
+    },
+    bright: {
+        ambient: vec4(1.0,1.0,1.0,1.0),
+        diffuse: vec4(0.8,0.8,0.8,1.0)
+    }
+};
 
 function calculateProducts(material){
     return {
@@ -219,7 +303,6 @@ function calculateProducts(material){
 }
 
 
-// --- Drawing ---
 function drawCube(matrix, material, color, buffer, vertexCount, texBuffer = texBuffers.black, texture = textures.black, normalBuffer = normalBuffers.cube) {
     setupAttribute(buffer, vPosition, 4);
     setupAttribute(texBuffer, vTexCoord, 2);
@@ -247,6 +330,29 @@ function createNode(transform, render, sibling, child) {
     return { transform, render, sibling, child };
 }
 
+function setTypeHorseTexture(type) {
+
+    
+    let texBuffer, texture, calfTexBuffer, calfTexture;
+    if (type === 0) {
+        texBuffer = texBuffers.black;
+        texture = textures.black;
+        calfTexBuffer = texBuffers.black2;
+        calfTexture = textures.black2;
+    } else if (type === 1) {
+        texBuffer = texBuffers.brown;
+        texture = textures.brown;
+        calfTexBuffer = texBuffers.brown2;
+        calfTexture = textures.brown2;
+    } else {
+        texBuffer = texBuffers.white;
+        texture = textures.white;
+        calfTexBuffer = texBuffers.yellow;
+        calfTexture = textures.yellow;
+    }
+    
+    return { texBuffer, texture, calfTexBuffer, calfTexture };
+}
 function traverse(Id) {
     if (Id == null) return;
     stack.push(modelViewMatrix);
@@ -266,170 +372,177 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
         mult(rotate(angle, [0, 1, 0]), scalem(1, 1, 1))
     );
 
-    let texBuffer, texture;
-    if (horseType === 0) {
-        texBuffer = texBuffers.black;
-        texture = textures.black;
-    } else if (horseType === 1) {
-        texBuffer = texBuffers.brown;
-        texture = textures.brown;
-    } else {
-        texBuffer = texBuffers.white;
-        texture = textures.white;
-    }
+    let {texBuffer, texture, calfTexBuffer: subTexBuffer, calfTexture: subTexture} = setTypeHorseTexture(horseType);
+    
 
     // 몸통
     figure[0] = createNode(
         mult(mult(mV, translate(horsePosition[0] - horsesCurSpeed + 10, horsePosition[1], horsePosition[2])), rotate(1 / 5 * legAngles[3], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, bodyMaterial, vec4(1, 0, 0, 1), buffers.wideCube, wideCubePoints.length, texBuffer, texture, normalBuffers.wideCube),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(1, 0, 0, 1), buffers.wideCube, wideCubePoints.length, texBuffer, texture, normalBuffers.wideCube),
         null, 1
     );
 
-    // 다리1
+    // 오른쪽 뒷 허벅지
     figure[1] = createNode(
         mult(translate(0.25, -0.15, -0.15), rotate(1 / 5 * legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, thighMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseThigh, horseThighPoints.length, texBuffer, texture, normalBuffers.horseThigh),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseThigh, horseThighPoints.length, texBuffer, texture, normalBuffers.horseThigh),
         5, 2
     );
+    // 오른쪽 뒷 종아리
     figure[2] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffer, texture, normalBuffers.tallCube),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffer, texture, normalBuffers.tallCube),
         null, 3
     );
+    // 오른쪽 뒷 종아리 2
     figure[3] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffer, texture, normalBuffers.horseCalf),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffer, texture, normalBuffers.horseCalf),
         null, 4
     );
+    // 오른쪽 뒷 발굽
     figure[4] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black, normalBuffers.horseHoof),
+        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, subTexBuffer, subTexture, normalBuffers.horseHoof),
         null, null
     );
 
-    // 다리2
+    // 왼쪽 뒷 허벅지
     figure[5] = createNode(
         mult(translate(0.25, -0.15, 0.15), rotate(1 / 5 * legAngles[3], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, thighMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseThigh, horseThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseThigh),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseThigh, horseThighPoints.length, texBuffer, texture, normalBuffers.horseThigh),
         9, 6
     );
+    // 왼쪽 뒷 종아리
     figure[6] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black, normalBuffers.tallCube),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffer, texture, normalBuffers.tallCube),
         null, 7
     );
+    // 왼쪽 뒷 종아리 2
     figure[7] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffer, texture, normalBuffers.horseCalf),
         null, 8
     );
+    // 왼쪽 뒷 발굽
     figure[8] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black, normalBuffers.horseHoof),
+        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, subTexBuffer, subTexture, normalBuffers.horseHoof),
         null, null
     );
 
-    // 꼬리
+    // 꼬리 1
     figure[9] = createNode(
         mult(translate(0.35, 0, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseCalf, horseCalfPoints.length, subTexBuffer, subTexture, normalBuffers.horseCalf),
         11, 10
     );
+    // 꼬리 2
     figure[10] = createNode(
         mult(translate(0, -0.15, 0), rotate(legAngles[3], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseCalf, horseCalfPoints.length, subTexBuffer, subTexture, normalBuffers.horseCalf),
         null, null
     );
 
-    // 머리
+    // 목 1 (Body와 연결되는 부분)
     figure[11] = createNode(
         mult(translate(-0.35, 0.15, 0), rotate(0.4 * legAngles[1] + 240, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black, normalBuffers.trapezoid),
+        () => drawCube(modelViewMatrix, uniformMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffer, texture, normalBuffers.trapezoid),
         15, 12
     );
+    // 목 2 (머리와 연결되는 부분)
     figure[12] = createNode(
         mult(translate(0, -0.2, 0), rotate(0, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black, normalBuffers.trapezoid),
+        () => drawCube(modelViewMatrix, uniformMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffer, texture,normalBuffers.trapezoid),
         null, 13
     );
+    // 머리 1 (목 2와 연결되는 부분)
     figure[13] = createNode(
         mult(translate(0.1, -0.17, 0), rotate(60, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial,vec4(1.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black, normalBuffers.trapezoid),
+        () => drawCube(modelViewMatrix, uniformMaterial,vec4(1.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffer, texture, normalBuffers.trapezoid),
         23, 14
     );
+    // 머리 2
     figure[14] = createNode(
         mult(translate(0.05, -0.09, -0), rotate(60, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial,vec4(1.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffers.black, textures.black, normalBuffers.trapezoid),
+        () => drawCube(modelViewMatrix,uniformMaterial,vec4(1.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffer, texture, normalBuffers.trapezoid),
         null, null
     );
 
-    // 다리3
+    // 오른쪽 앞 허벅지
     figure[15] = createNode(
         mult(translate(-0.20, -0.15, -0.15), rotate(1 / 5 * legAngles[3], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, thighMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseFrontThigh),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffer, texture, normalBuffers.horseFrontThigh),
         19, 16
     );
+    // 오른쪽 앞 종아리 1
     figure[16] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black, normalBuffers.tallCube),
+        () => drawCube(modelViewMatrix, uniformMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffer, texture, normalBuffers.tallCube),
         null, 17
     );
+    // 오른쪽 앞 종아리 2
     figure[17] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffer, texture, normalBuffers.horseCalf),
         null, 18
     );
+    // 오른쪽 앞 발굽
     figure[18] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black, normalBuffers.horseHoof),
+        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, subTexBuffer, subTexture, normalBuffers.horseHoof),
         null, null
     );
 
-    // 다리4
+    // 왼쪽 앞 허벅지
     figure[19] = createNode(
         mult(translate(-0.20, -0.15, 0.15), rotate(1 / 5 * legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, thighMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseFrontThigh),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffer, texture, normalBuffers.horseFrontThigh),
         null, 20
     );
+    // 왼쪽 앞 종아리 1
     figure[20] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[0], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffers.black, textures.black, normalBuffers.tallCube),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.tallCube, tallCubePoints.length, texBuffer, texture, normalBuffers.tallCube),
         null, 21
     );
+    // 왼쪽 앞 종아리 2
     figure[21] = createNode(
         mult(translate(0, -0.2, 0), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffers.black, textures.black, normalBuffers.horseCalf),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 0.0, 1.0, 1.0), buffers.horseCalf, horseCalfPoints.length, texBuffer, texture, normalBuffers.horseCalf),
         null, 22
     );
+    // 왼쪽 앞 발굽
     figure[22] = createNode(
         mult(translate(0, -0.1, 0), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, texBuffers.black, textures.black, normalBuffers.horseHoof),
+        () => drawCube(modelViewMatrix, hoofMaterial, vec4(1.0, 1.0, 0.0, 1.0), buffers.horseHoof, horseHoofPoints.length, subTexBuffer, subTexture, normalBuffers.horseHoof),
         null, null
     );
 
     // 귀 양쪽
     figure[23] = createNode(
         mult(translate(-0.02, -0.3, 0.1), rotate(legAngles[1], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, thighMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseFrontThigh),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, subTexBuffer, subTexture, normalBuffers.horseFrontThigh),
         24, null
     );
     figure[24] = createNode(
         mult(translate(-0.02, -0.3, -0.1), rotate(legAngles[2], [0, 0, 1])),
-        () => drawCube(modelViewMatrix, thighMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, texBuffers.black, textures.black, normalBuffers.horseFrontThigh),
+        () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.horseFrontThigh, horseFrontThighPoints.length, subTexBuffer, subTexture, normalBuffers.horseFrontThigh),
         25, null
     );
 
     // 갈귀
     figure[25] = createNode(
             mult(translate(-0.02, -0.3, -0.0), rotate(legAngles[1] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white, normalBuffers.horseMane),
+            () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, subTexBuffer, subTexture, normalBuffers.horseMane),
             26,
             null
         );
 
     figure[26] = createNode(
             mult(translate(-0.1, -0.05, -0.0), rotate(legAngles[2] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white, normalBuffers.horseMane),
+            () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, subTexBuffer, subTexture, normalBuffers.horseMane),
             27,
             null
         );
@@ -437,7 +550,7 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
 
     figure[27] = createNode(
             mult(translate(-0.1, -0.1, -0.0), rotate(legAngles[3] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, calfMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white, normalBuffers.horseMane),
+            () => drawCube(modelViewMatrix, uniformMaterial, vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, subTexBuffer, subTexture, normalBuffers.horseMane),
             28,
             null
         );
@@ -446,7 +559,7 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
         let y = -0.3 + 0.05 * (i - 25);
         figure[i] = createNode(
             mult(translate(-0.1, y, 0), rotate(legAngles[(i - 25) % 4] + 60, [0, 0, 1])),
-            () => drawCube(modelViewMatrix, calfMaterial,vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, texBuffers.white, textures.white, normalBuffers.horseCalf),
+            () => drawCube(modelViewMatrix, uniformMaterial,vec4(0.0, 0.0, 0.0, 1.0), buffers.horseMane, horseManePoints.length, subTexBuffer, subTexture, normalBuffers.horseCalf),
             i < 36 ? i + 1 : null,
             null
         );
@@ -455,6 +568,13 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
 // --- Animation ---
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    let eye = vec3(eyeSlider.x, eyeSlider.y, eyeSlider.z);
+    let mV = mult(
+        lookAt(eye, vec3(0, 0, 0), vec3(0, 1, 0)),
+        mult(rotate(angle, [0, 1, 0]), scalem(1, 1, 1))
+    );
+    drawCube(mult(mV, translate(0, -0.7, 0)), groundMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.ground, groundPoints.length, currentWeatherTexBuffer, currentWeatherTexture, currentWeatherNormalBuffer);
 
     if (horseCount > 1) {
         for (let h = 0; h < horses.length; h++) {
@@ -480,9 +600,16 @@ function render() {
         }
         modelViewMatrix = mat4();
         horsesCurSpeed[0] = 0;
+
+        settingNode(horse.legAngles, vec3(-10, 0, 0), horsesCurSpeed[0], horseType[0]);
+
         settingNode(horse.legAngles, horse.position, horsesCurSpeed[0], horseType[0]);
         traverse(0);
     }
+    
+
+    
+
 
     ptMatrix = perspective(45, canvasW / canvasH, 0.1, 1000.0);
     gl.uniformMatrix4fv(projectionLoc, false, flatten(ptMatrix));
@@ -510,6 +637,18 @@ function setupUI() {
         spawnHorses(count);
     };
 
+
+    document.getElementById("singleHorseToggle").addEventListener("change", function () {
+        if (this.checked) {
+            horseCount = 1;
+            spawnHorses(1);
+        } else {
+            const count = parseInt(document.getElementById("horseCount").value);
+            horseCount = count;
+            spawnHorses(count);
+        }
+    });
+
     document.getElementById("singleHorseToggle").addEventListener("change", function () {
         if (this.checked) {
             horseCount = 1;
@@ -523,23 +662,74 @@ function setupUI() {
 
 
     // 조명 핸들러
-     document.getElementById("lightX").addEventListener("input", function() {
-        lightPosition[0] = parseFloat(this.value);
+    //  document.getElementById("lightX").addEventListener("input", function() {
+    //     lightPosition[0] = parseFloat(this.value);
+    // });
+    // document.getElementById("lightY").addEventListener("input", function() {
+    //     lightPosition[1] = parseFloat(this.value);
+    // });
+    // document.getElementById("lightZ").addEventListener("input", function() {
+    //     lightPosition[2] = parseFloat(this.value);
+    // });
+    // document.getElementById("shininess").addEventListener("input", function() {
+    //     materialShininess = parseFloat(this.value);
+    // });
+    
+    // lightposition을 12시로 고정
+    lightPosition = vec4(0.0,1.0,0.0,0.0);
+    ["dark", "bright"].forEach(weather => {
+        document.getElementById(weather).addEventListener("change", function () {
+            if (this.checked){
+                const L = weatherLighting[weather];
+                lightAmbient = L.ambient;
+                lightDiffuse = L.diffuse;
+            }
+        });
     });
-    document.getElementById("lightY").addEventListener("input", function() {
-        lightPosition[1] = parseFloat(this.value);
-    });
-    document.getElementById("lightZ").addEventListener("input", function() {
-        lightPosition[2] = parseFloat(this.value);
-    });
-    document.getElementById("shininess").addEventListener("input", function() {
-        materialShininess = parseFloat(this.value);
-    });
+    
 
     document.getElementById("spawnBtn").onclick = function () {
         const count = parseInt(document.getElementById("horseCount").value);
         spawnHorses(count);
     };
+
+    const seasonTextures = {
+        spring: textures.spring,
+        summer: textures.ground,
+        fall: textures.fall,
+        winter: textures.snow,
+    };
+
+    const seasonTexBuffers = {
+        spring: texBuffers.spring,
+        summer: texBuffers.ground,
+        fall: texBuffers.fall,
+        winter: texBuffers.snow,
+    };
+
+    const seasonNormalBuffers = {
+        spring: normalBuffers.spring,
+        summer: normalBuffers.ground,
+        fall: normalBuffers.fall,
+        winter: normalBuffers.snow,
+    };
+
+    ["spring", "summer", "fall", "winter"].forEach(season => {
+        document.getElementById(season).addEventListener("change", function () {
+            if (this.checked) {
+                // 선택한 계절의 텍스처만 적용
+                currentWeatherTexBuffer = seasonTexBuffers[season];
+                currentWeatherTexture = seasonTextures[season];
+                currentWeatherNormalBuffer = seasonNormalBuffers[season];
+                
+                // 선택한 계절의 조명 강도 적용
+                // const L = seasonLighting[season];
+                // lightAmbient = L.ambient;
+                // lightDiffuse = L.diffuse;
+            }
+        });
+    });
+
 }
 
 // --- Main ---
@@ -549,7 +739,7 @@ window.onload = function init() {
     if (!gl) { alert("WebGL isn't available"); }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(1., 1., 1.0, 1.0);
+    gl.clearColor(0., 1., 1.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
     program = initShaders(gl, "vertex-shader", "fragment-shader");
