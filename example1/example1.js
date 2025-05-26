@@ -13,6 +13,10 @@ var lightAmbient  = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 ambient
 var lightDiffuse  = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 diffuse
 var lightSpecular = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 specular
 var lightPosition = vec4(5.0, 5.0, 5.0, 1.0); // 위치형 광원 (point light)
+var lightAmbient = vec4(0.2,0.2,0.2,1.0);
+var lightDiffuse = vec4(1.0,1.0,0.0,1.0);
+var lightSpecular = vec4(1.0,1.0,1.0,1.0);
+var lightPosition = vec4(5.0,5.0,5.0,1.0);
 
 var ambientProductLoc;
 var diffuseProductLoc;
@@ -571,6 +575,7 @@ function render() {
         mult(rotate(angle, [0, 1, 0]), scalem(1, 1, 1))
     );
     drawCube(mult(mV, translate(0, -0.7, 0)), groundMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.ground, groundPoints.length, currentWeatherTexBuffer, currentWeatherTexture, currentWeatherNormalBuffer);
+
     if (horseCount > 1) {
         for (let h = 0; h < horses.length; h++) {
             let horse = horses[h];
@@ -595,7 +600,10 @@ function render() {
         }
         modelViewMatrix = mat4();
         horsesCurSpeed[0] = 0;
+
         settingNode(horse.legAngles, vec3(-10, 0, 0), horsesCurSpeed[0], horseType[0]);
+
+        settingNode(horse.legAngles, horse.position, horsesCurSpeed[0], horseType[0]);
         traverse(0);
     }
     
@@ -628,6 +636,18 @@ function setupUI() {
         horseCount = count;
         spawnHorses(count);
     };
+
+
+    document.getElementById("singleHorseToggle").addEventListener("change", function () {
+        if (this.checked) {
+            horseCount = 1;
+            spawnHorses(1);
+        } else {
+            const count = parseInt(document.getElementById("horseCount").value);
+            horseCount = count;
+            spawnHorses(count);
+        }
+    });
 
     document.getElementById("singleHorseToggle").addEventListener("change", function () {
         if (this.checked) {
