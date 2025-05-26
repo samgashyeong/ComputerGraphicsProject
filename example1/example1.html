@@ -86,9 +86,10 @@ void main() {
         </canvas>
         <div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
-                <label>말 마리 수: <input type="number" id="horseCount" min="1" max="30" value="30"></label>
-                <button id="spawnBtn">생성</button>
-                <label><input type="checkbox" id="singleHorseToggle"> 모델링만 보기</label>
+                <label>Number of horses: <input type="number" id="horseCount" min="1" max="30" value="30"></label>
+                <button id="spawnBtn">Spawn</button>
+                <label><input type="checkbox" id="singleHorseToggle">View Model Only</label>
+
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; flex-direction: row; gap: 8px;">
@@ -104,15 +105,21 @@ void main() {
                     <span id="eyeZVal">0</span>
                 </div>
             </div>
+
+            <!-- 조명 제어 UI -->
             <div>
-                <label><input type="radio" name="season" id="spring"> 봄</label>
-                <label><input type="radio" name="season" id="summer" checked> 여름</label>
-                <label><input type="radio" name="season" id="fall"> 가을</label>
-                <label><input type="radio" name="season" id="winter"> 겨울</label>
+
+                <h3>Season</h3>
+                <label><input type="radio" name="season" id="spring">Spring</label>
+                <label><input type="radio" name="season" id="summer" checked>Summer</label>
+                <label><input type="radio" name="season" id="fall">Fall</label>
+                <label><input type="radio" name="season" id="winter">Winter</label>
             </div>
             <div>
-                <label><input type="radio" name="weather" id="dark"> 흐린날 </label>
-                <label><input type="radio" name="weather" id="bright" checked> 밝은날 </label>
+                <h3>Weather</h3>
+                <label><input type="radio" name="weather" id="dark"> Rainy Day </label>
+                <label><input type="radio" name="weather" id="bright" checked> Bright Day </label>
+
             </div>
         </div>
     </div>
