@@ -659,7 +659,7 @@ function setupUI() {
                     gl.clearColor(0.8, 1.0, 0.8, 1.0); // 연한 연두
                     break;
                 case "summer":
-                    gl.clearColor(0.6, 0.85, 1.0, 1.0); // 하늘색
+                    gl.clearColor(0., 1., 1.0, 1.0); // 하늘색
                     break;
                 case "fall":
                     gl.clearColor(1.0, 0.9, 0.6, 1.0); // 노란빛
@@ -670,7 +670,6 @@ function setupUI() {
             }
         });
     });
-
 }
 
 // --- Main ---
