@@ -8,6 +8,7 @@
     <script id="vertex-shader" type="x-shader/x-vertex">
 attribute vec4 vPosition;
 attribute vec2 vTexCoord;      // 추가
+
 varying vec2 fTexCoord;        // 추가
 attribute vec3 vNormal;        // 법선벡터
 varying vec4 fColor;
@@ -62,7 +63,9 @@ varying vec4 fColor;
 void main() {
     vec4 texColor = texture2D(uTexture, fTexCoord); // 텍스처 색상
     
-    vec3 finalColor = texColor.rgb * 0.8;     // 텍스처 색상에 조명 곱하기
+    // vec3 finalColor = texColor.rgb * 0.8;     // 텍스처 색상에 조명 곱하기 (조명효과 적용 안됨, 사용 고려)
+
+    vec3 finalColor = texColor.rgb * fColor.rgb;
     gl_FragColor = vec4(finalColor, texColor.a);   // 최종 색상 출력
 }
 </script>
