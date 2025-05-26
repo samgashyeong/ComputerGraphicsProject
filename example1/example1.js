@@ -13,10 +13,6 @@ var lightAmbient  = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 ambient
 var lightDiffuse  = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 diffuse
 var lightSpecular = vec4(1.0, 1.0, 1.0, 1.0); // 흰색 specular
 var lightPosition = vec4(5.0, 5.0, 5.0, 1.0); // 위치형 광원 (point light)
-var lightAmbient = vec4(0.2,0.2,0.2,1.0);
-var lightDiffuse = vec4(1.0,1.0,0.0,1.0);
-var lightSpecular = vec4(1.0,1.0,1.0,1.0);
-var lightPosition = vec4(5.0,5.0,5.0,1.0);
 
 var ambientProductLoc;
 var diffuseProductLoc;
@@ -47,7 +43,7 @@ let eyeSlider = { x: 3, y: 2, z: 4 };
 let currentCamera = 0;
 
 let horses = [], horsesSpeed = [], horsesCurSpeed = [];
-let figure = [], horseType = [];
+let figure = [], horseType = [], horseHeadSpeed = [];
 
 function createBufferWithData(data) {
     const buffer = gl.createBuffer();
@@ -112,6 +108,10 @@ let currentWeatherTexture = null;
 let currentWeatherTexBuffer = null;
 let currentWeatherNormalBuffer = null;
 
+
+//메모리 최적화
+for (let i = 0; i < 100; i++) figure[i] = createNode(null, null, null, null);
+
 // 각 부위별 points
 const cubePoints = makePoints(cubeVertices);
 const tallCubePoints = makePoints(tallCubeVertices);
@@ -145,13 +145,14 @@ function setupBuffersAndTextures() {
     texBuffers.white = createBufferWithData(cubeTexCoords);
     texBuffers.black2 = createBufferWithData(cubeTexCoords);
     texBuffers.yellow = createBufferWithData(cubeTexCoords);
-    texBuffers.brown2 = createBufferWithData(cubeTexCoords);    
+    texBuffers.brown2 = createBufferWithData(cubeTexCoords);
+    texBuffers.cloud = createBufferWithData(cubeTexCoords);    
 
     texBuffers.ground = createBufferWithData(groundTexCoords);
     texBuffers.spring = createBufferWithData(groundTexCoords);
     texBuffers.fall = createBufferWithData(groundTexCoords);
     texBuffers.snow = createBufferWithData(groundTexCoords);
-
+  
     // Texture Objects
     textures.brown = createTextureWithImage("texture/brown_1.png");
     textures.black = createTextureWithImage("texture/black_1.png");
@@ -159,11 +160,13 @@ function setupBuffersAndTextures() {
     textures.black2 = createTextureWithImage("texture/black_2.png");
     textures.yellow = createTextureWithImage("texture/yellow_1.png");
     textures.brown2 = createTextureWithImage("texture/brown_2.png");
+    textures.cloud = createTextureWithImage("texture/cloud_1.png");
     
     textures.ground = createTextureWithImage("texture/ground_1.jpg");
     textures.spring = createTextureWithImage("texture/spring_1.png");
     textures.fall = createTextureWithImage("texture/fall_1.png");
     textures.snow = createTextureWithImage("texture/snow_1.png");
+    textures.rain = createTextureWithImage("texture/rain.png");
 
     // normal vector buffer
     normalBuffers.cube = createBufferWithData(cubeNormalPoints);
@@ -179,6 +182,7 @@ function setupBuffersAndTextures() {
     normalBuffers.spring = createBufferWithData(cubeNormalPoints);
     normalBuffers.fall = createBufferWithData(cubeNormalPoints);
     normalBuffers.snow = createBufferWithData(cubeNormalPoints);
+    normalBuffers.cloud = createBufferWithData(cubeNormalPoints);
 
     currentWeatherTexBuffer = texBuffers.ground;
     currentWeatherTexture = textures.ground;
@@ -204,7 +208,7 @@ function createHorseInstance(existingPositions) {
         legSpeeds: [
             1.5 + Math.random()*1.2,
             2.2 + Math.random()*1.2,
-            1.0 + Math.random()*1.2,
+            2.0 + Math.random()*1.2,
             2.8 + Math.random()*1.2,
         ],
         runningSpeed: [1.2 + Math.random()],
@@ -219,12 +223,14 @@ function spawnHorses(count) {
     for (let i = 0; i < count; i++) {
         let horse = createHorseInstance(positions);
         let horseS = Math.random() / 10;
+        let horseHs = Math.random() / 10 + 0.1;
         positions.push(horse.position);
         horses.push(horse);
         horsesSpeed.push(horseS);
         horsesCurSpeed.push(0);
         let type = Math.floor(Math.random() * 3);
         horseType.push(type);
+        horseHeadSpeed.push(horseHs);
     }
 }
 
@@ -323,6 +329,7 @@ function drawCube(matrix, material, color, buffer, vertexCount, texBuffer = texB
     gl.uniformMatrix4fv(modelViewLoc, false, flatten(matrix));
     gl.uniform4fv(colorLoc, color);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+
 }
 
 // --- Node/Hierarchy ---
@@ -363,8 +370,8 @@ function traverse(Id) {
     if (figure[Id].sibling != null) traverse(figure[Id].sibling);
 }
 
-function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
-    for (let i = 0; i < 100; i++) figure[i] = createNode(null, null, null, null);
+
+function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType, horseHeadSpeed) {
 
     let eye = vec3(eyeSlider.x, eyeSlider.y, eyeSlider.z);
     let mV = mult(
@@ -447,8 +454,8 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
 
     // 목 1 (Body와 연결되는 부분)
     figure[11] = createNode(
-        mult(translate(-0.35, 0.15, 0), rotate(0.4 * legAngles[1] + 240, [0, 0, 1])),
-        () => drawCube(modelViewMatrix, uniformMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffer, texture, normalBuffers.trapezoid),
+        mult(translate(-0.35, 0.15, 0), rotate(horseHeadSpeed * legAngles[1] + 240, [0, 0, 1])),
+         () => drawCube(modelViewMatrix, uniformMaterial,vec4(0.0, 1.0, 0.0, 1.0), buffers.trapezoid, trapezoidPoints.length, texBuffer, texture, normalBuffers.trapezoid),
         15, 12
     );
     // 목 2 (머리와 연결되는 부분)
@@ -565,6 +572,16 @@ function settingNode(legAngles, horsePosition, horsesCurSpeed, horseType) {
         );
     }
 }
+
+function settingCloud(mv, translateMatrix, scaleX, scaleY, scaleZ) {
+    let cloudTexBuffer = texBuffers.cloud;
+    let cloudTexture = textures.cloud;
+    let cloudNormalBuffer = normalBuffers.cloud;
+
+    let modelViewMatrix = mult(mv, translateMatrix);
+    drawCube(modelViewMatrix, bodyMaterial, vec4(1.0, 1.0, 1.0, 1.0), buffers.horseHoof, 36, cloudTexBuffer, cloudTexture, cloudNormalBuffer);
+}
+
 // --- Animation ---
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -575,7 +592,8 @@ function render() {
         mult(rotate(angle, [0, 1, 0]), scalem(1, 1, 1))
     );
     drawCube(mult(mV, translate(0, -0.7, 0)), groundMaterial, vec4(0.0, 1.0, 0.0, 1.0), buffers.ground, groundPoints.length, currentWeatherTexBuffer, currentWeatherTexture, currentWeatherNormalBuffer);
-
+    renderRain(mV);
+    
     if (horseCount > 1) {
         for (let h = 0; h < horses.length; h++) {
             let horse = horses[h];
@@ -587,7 +605,7 @@ function render() {
             modelViewMatrix = mat4();
             horsesCurSpeed[h] += horsesSpeed[h];
             if (horsesCurSpeed[h] > 30) horsesCurSpeed[h] = 0;
-            settingNode(horse.legAngles, horse.position, horsesCurSpeed[h], horseType[h]);
+            settingNode(horse.legAngles, horse.position, horsesCurSpeed[h], horseType[h], horseHeadSpeed[h]);
             traverse(0);
         }
     }
@@ -600,10 +618,7 @@ function render() {
         }
         modelViewMatrix = mat4();
         horsesCurSpeed[0] = 0;
-
-        settingNode(horse.legAngles, vec3(-10, 0, 0), horsesCurSpeed[0], horseType[0]);
-
-        settingNode(horse.legAngles, horse.position, horsesCurSpeed[0], horseType[0]);
+        settingNode(horse.legAngles, vec3(-10, 0, 0), horsesCurSpeed[0], 1, horseHeadSpeed[0]);
         traverse(0);
     }
     
@@ -661,7 +676,6 @@ function setupUI() {
     });
 
 
-    // 조명 핸들러
     //  document.getElementById("lightX").addEventListener("input", function() {
     //     lightPosition[0] = parseFloat(this.value);
     // });
@@ -721,15 +735,24 @@ function setupUI() {
                 currentWeatherTexBuffer = seasonTexBuffers[season];
                 currentWeatherTexture = seasonTextures[season];
                 currentWeatherNormalBuffer = seasonNormalBuffers[season];
-                
-                // 선택한 계절의 조명 강도 적용
-                // const L = seasonLighting[season];
-                // lightAmbient = L.ambient;
-                // lightDiffuse = L.diffuse;
+            }
+
+            switch (season) {
+                case "spring":
+                    gl.clearColor(0.8, 1.0, 0.8, 1.0); // 연한 연두
+                    break;
+                case "summer":
+                    gl.clearColor(0., 1., 1.0, 1.0); // 하늘색
+                    break;
+                case "fall":
+                    gl.clearColor(1.0, 0.9, 0.6, 1.0); // 노란빛
+                    break;
+                case "winter":
+                    gl.clearColor(0.9, 0.95, 1.0, 1.0); // 밝은 파랑/흰색
+                    break;
             }
         });
     });
-
 }
 
 // --- Main ---
@@ -761,5 +784,69 @@ window.onload = function init() {
     setupBuffersAndTextures();
     setupUI();
     spawnHorses(horseCount);
+    initRain();
     render();
 };
+
+
+// --- Rain Effect ---
+const RAIN_COUNT = 500;
+let rainParticles = [];
+let rainLineBuffer = null;
+let rainTexBuffer = null;
+
+function initRain() {
+    const rainRange = 200;
+    rainParticles = [];
+    for (let i = 0; i < RAIN_COUNT; i++) {
+        rainParticles.push({
+            x: Math.random() * rainRange - rainRange / 2,
+            y: Math.random() * 3 + 10,
+            z: Math.random() * rainRange - rainRange / 2,
+            speed: Math.random() * 0.03 + 0.2
+        });
+    }
+    if (!rainLineBuffer) {
+        let rainVertices = [
+            vec4(0, 0, 0, 1),
+            vec4(0, -0.2, 0, 1)
+        ];
+        rainLineBuffer = createBufferWithData(rainVertices);
+        let rainTexCoords = [
+            vec2(0.0, 1.0),
+            vec2(0.0, 0.0)
+        ];
+        rainTexBuffer = createBufferWithData(rainTexCoords);
+    }
+}
+
+function renderRain(mv) {
+    const rainRange = 200;
+    gl.useProgram(program);
+    for (let i = 0; i < rainParticles.length; i++) {
+        let p = rainParticles[i];
+        p.y -= p.speed;
+        if (p.y < -0.7) {
+            p.x = Math.random() * rainRange - rainRange / 2;
+            p.y = Math.random() * 3 + 10;
+            p.z = Math.random() * rainRange - rainRange / 2;
+            p.speed = Math.random() * 0.03 + 0.2;
+        }
+        let modelView = mult(mv, translate(p.x, p.y, p.z));
+        drawRainLine(modelView);
+    }
+}
+
+
+function drawRainLine(modelViewMatrix) {
+    setupAttribute(rainLineBuffer, vPosition, 4);
+    setupAttribute(rainTexBuffer, vTexCoord, 2);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, textures.rain);
+    gl.uniform1i(gl.getUniformLocation(program, "uTexture"), 0);
+
+    gl.uniform4fv(colorLoc, vec4(1.0, 1.0, 1.0, 1));
+    gl.uniformMatrix4fv(modelViewLoc, false, flatten(modelViewMatrix));
+    gl.drawArrays(gl.LINES, 0, 2);
+}
